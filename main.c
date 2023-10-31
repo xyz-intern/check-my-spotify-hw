@@ -23,6 +23,7 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "usbd_cdc_if.h"
+#include "TM1637.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -32,6 +33,9 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
+/*
+ * lcd code define
+ */
 #define I2C_ADDR 0x27 // I2C address of the PCF8574
 #define RS_BIT 0 // Register select bit
 #define EN_BIT 2 // Enable bit
@@ -53,22 +57,27 @@
 
 /* Private variables ---------------------------------------------------------*/
 I2C_HandleTypeDef hi2c1;
-DMA_HandleTypeDef hdma_i2c1_rx;
-DMA_HandleTypeDef hdma_i2c1_tx;
 
 /* USER CODE BEGIN PV */
+// serial communication code
 extern uint8_t UserRxBufferFS[APP_RX_DATA_SIZE];
 extern uint8_t UserTxBufferFS[APP_TX_DATA_SIZE];
 
+// lcd code
 uint8_t backlight_state = 1;
+uint8_t sw_state_1_off = 1;
+uint8_t sw_state_1_on = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
-static void MX_DMA_Init(void);
 static void MX_I2C1_Init(void);
 /* USER CODE BEGIN PFP */
+
+/*
+ * lcd functions
+ */
 void lcd_write_nibble(uint8_t nibble, uint8_t rs);
 void lcd_send_cmd(uint8_t cmd);
 void lcd_send_data(uint8_t data);
@@ -77,6 +86,7 @@ void lcd_write_string(char *str);
 void lcd_set_cursor(uint8_t row, uint8_t column);
 void lcd_clear(void);
 void lcd_backlight(uint8_t state);
+
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -112,52 +122,85 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
-  MX_DMA_Init();
   MX_USB_DEVICE_Init();
   MX_I2C1_Init();
   /* USER CODE BEGIN 2 */
+  volatile uint8_t displayColon =0;
+
+  // lcd code
   lcd_init();
   lcd_backlight(1);
 
+  // seven segment code
+//  TM1637_SetBrightness(7);
+
+  // lcd code
   char *text = "test";
   char int_to_str[10] = {'a','b','t','e','s','t'};
+
+  // seven segment
+  int i = 0 ;
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-
-
-	  /*
-	   * lcd stm32 to PCf8574 I/O i2c controll
-	   */
-	  lcd_clear();
-	  lcd_set_cursor(0, 0);
-	  lcd_write_string(text);
-	  lcd_set_cursor(1, 0);
-	  lcd_write_string(int_to_str);
-	  memset(int_to_str, 0, sizeof(int_to_str));
-	  HAL_Delay(1500);
-
-	  /*
-	   * stm32 to pc / serial communication
-	   */
-	  uint16_t len = strlen((const char*)UserRxBufferFS); // strlen result UserRxBufferFs Size
-	  // \0 을 만나기 전까지의 길이를 반환함 const char * -> 변경 불가 상수 문자열
-
-	  if ( len > 0 )
-	  { // is data ?
-		  strncpy((char *)UserTxBufferFS, (const char*)UserRxBufferFS,len);
-		  strncpy(int_to_str,(const char*)UserRxBufferFS,len);
-//		  strcat((char *)UserTxBufferFS,"\r\n"); // 끝에 문자열 추가하는 거
-	  	  CDC_Transmit_FS((uint8_t*)UserTxBufferFS, strlen((const char*)UserTxBufferFS)); // 보내기
-	  	  // memory init
-	  	  memset(UserRxBufferFS, 0, sizeof(UserRxBufferFS)); // 초기화
-	  	  memset(UserTxBufferFS, 0, sizeof(UserTxBufferFS)); // 초기화
-	  	  // 버퍼 초기화 안하면 꼬임
+	  // ramps switch 1.4
+	  if ( !HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_3) & sw_state_1_off )
+	  {
+		  lcd_clear();
+		  lcd_set_cursor(0, 0);
+		  lcd_write_string("ON");
+		  sw_state_1_on = 1;
+		  sw_state_1_off= 0;
 	  }
-	  HAL_Delay(500);
+	  else if ( HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_3) & sw_state_1_on )
+	  {
+		  lcd_clear();
+		  lcd_set_cursor(0, 0);
+		  lcd_write_string("OFF");
+		  sw_state_1_off = 1;
+		  sw_state_1_on = 0;
+	  }
+	  // seven segment code
+//	  if ( i >= 10000 ) i = 0;
+//	  displayColon = !displayColon;
+//	  TM1637_DisplayDecimal(i, displayColon);
+//	  i++;
+	  /*
+	   * lcd stm32 to PCf8574 I/O i2c controll code
+	   */
+//	  lcd_clear();
+//	  lcd_set_cursor(0, 0);
+//	  lcd_write_string(text);
+//	  lcd_set_cursor(1, 0);
+//	  lcd_write_string(int_to_str);
+//	  memset(int_to_str, 0, sizeof(int_to_str));
+//	  HAL_Delay(1500);
+
+	  /*
+	   * stm32 to pc / serial communication code
+	   * strlen result UserRxBufferFs Size
+	   * \0 을 만나기 전까지의 길이를 반환함 const char * -> 변경 불가 상수 문자열
+	   * strcat((char *)UserTxBufferFS,"\r\n"); // 끝에 문자열 추가하는 거
+	   */
+
+//	  uint16_t len = strlen((const char*)UserRxBufferFS);
+//
+//	  if ( len > 0 )
+//	  { // is data ?
+//		  strncpy((char *)UserTxBufferFS, (const char*)UserRxBufferFS,len);
+//		  strncpy(int_to_str,(const char*)UserRxBufferFS,len);
+//	  	  CDC_Transmit_FS((uint8_t*)UserTxBufferFS, strlen((const char*)UserTxBufferFS)); // 보내기
+//
+//	  	  // memory init , 버퍼 초기화 안하면 꼬임
+//	  	  memset(UserRxBufferFS, 0, sizeof(UserRxBufferFS)); // 초기화
+//	  	  memset(UserTxBufferFS, 0, sizeof(UserTxBufferFS)); // 초기화
+//	  }
+//	  HAL_Delay(250);
+
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -246,31 +289,13 @@ static void MX_I2C1_Init(void)
 }
 
 /**
-  * Enable DMA controller clock
-  */
-static void MX_DMA_Init(void)
-{
-
-  /* DMA controller clock enable */
-  __HAL_RCC_DMA1_CLK_ENABLE();
-
-  /* DMA interrupt init */
-  /* DMA1_Channel6_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(DMA1_Channel6_IRQn, 0, 0);
-  HAL_NVIC_EnableIRQ(DMA1_Channel6_IRQn);
-  /* DMA1_Channel7_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(DMA1_Channel7_IRQn, 0, 0);
-  HAL_NVIC_EnableIRQ(DMA1_Channel7_IRQn);
-
-}
-
-/**
   * @brief GPIO Initialization Function
   * @param None
   * @retval None
   */
 static void MX_GPIO_Init(void)
 {
+  GPIO_InitTypeDef GPIO_InitStruct = {0};
 /* USER CODE BEGIN MX_GPIO_Init_1 */
 /* USER CODE END MX_GPIO_Init_1 */
 
@@ -279,6 +304,33 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOD_CLK_ENABLE();
   __HAL_RCC_GPIOA_CLK_ENABLE();
   __HAL_RCC_GPIOB_CLK_ENABLE();
+
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_3, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(GPIOB, CLK1_Pin|DIO1_Pin, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin : PA3 */
+  GPIO_InitStruct.Pin = GPIO_PIN_3;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : CLK1_Pin */
+  GPIO_InitStruct.Pin = CLK1_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(CLK1_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : DIO1_Pin */
+  GPIO_InitStruct.Pin = DIO1_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
+  HAL_GPIO_Init(DIO1_GPIO_Port, &GPIO_InitStruct);
 
 /* USER CODE BEGIN MX_GPIO_Init_2 */
 /* USER CODE END MX_GPIO_Init_2 */
