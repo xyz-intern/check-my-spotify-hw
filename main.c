@@ -67,6 +67,8 @@ extern uint8_t UserTxBufferFS[APP_TX_DATA_SIZE];
 uint8_t backlight_state = 1;
 uint8_t sw_state_1_off = 1;
 uint8_t sw_state_1_on = 0;
+uint8_t count_i = 0;
+volatile uint8_t displayColon =0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -86,7 +88,7 @@ void lcd_write_string(char *str);
 void lcd_set_cursor(uint8_t row, uint8_t column);
 void lcd_clear(void);
 void lcd_backlight(uint8_t state);
-
+void count_seven_segment(void);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -125,14 +127,14 @@ int main(void)
   MX_USB_DEVICE_Init();
   MX_I2C1_Init();
   /* USER CODE BEGIN 2 */
-  volatile uint8_t displayColon =0;
+//  volatile uint8_t displayColon =0;
 
   // lcd code
   lcd_init();
   lcd_backlight(1);
 
   // seven segment code
-//  TM1637_SetBrightness(7);
+  TM1637_SetBrightness(7);
 
   // lcd code
   char *text = "test";
@@ -155,6 +157,7 @@ int main(void)
 		  lcd_write_string("ON");
 		  sw_state_1_on = 1;
 		  sw_state_1_off= 0;
+		  count_seven_segment();
 	  }
 	  else if ( HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_3) & sw_state_1_on )
 	  {
@@ -419,6 +422,13 @@ void lcd_backlight(uint8_t state) {
   } else {
     backlight_state = 0;
   }
+}
+
+void count_seven_segment(void) {
+	if ( count_i >= 10000 ) count_i = 0;
+	displayColon = !displayColon;
+	TM1637_DisplayDecimal(count_i, displayColon);
+	count_i++;
 }
 
 /* USER CODE END 4 */
