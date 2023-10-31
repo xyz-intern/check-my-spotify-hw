@@ -4,8 +4,9 @@ import threading
 import serial
 
 class Spotify_Controller:
+
     def __init__(self, baudrate=115200, port="/dev/serial/by-id/usb-FTDI_FT232R_USB_UART_A9EIFOED-if00-port0"):
-        self.seq = itertools.count()
+
 
         # Uart communication settings
         self.ser = serial.Serial()
@@ -27,20 +28,3 @@ class Spotify_Controller:
         while True:
             data = bytearray(self.ser.read())
             print(data)
-    
-    '''
-    functions
-    1. stop & start
-    2. Volum Up & Down
-    3. Next Music & Last Music
-    '''
-
-    def __send_data(self, command, data):
-        seq = next(self.seq) % 0xFE + 1
-        cmd = [0xFF, 0, seq, command, REQUEST]
-        cmd.extend(data)
-        cmd[1] = len(cmd) - 2
-        checksum = sum(cmd) & 0xFF
-        cmd.append(checksum)
-        print(cmd)
-        self.ser.write(cmd)
