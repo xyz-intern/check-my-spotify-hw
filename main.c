@@ -65,10 +65,14 @@ extern uint8_t UserTxBufferFS[APP_TX_DATA_SIZE];
 
 // lcd code
 uint8_t backlight_state = 1;
-uint8_t sw_state_1_off = 1;
-uint8_t sw_state_1_on = 0;
 uint8_t count_i = 0;
+
 volatile uint8_t displayColon =0;
+
+// ramps swtich btn
+volatile uint8_t sw_state_stop_start=1; // 1: start, 0: stop
+
+GPIO_PinState btn_flag_1 = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -89,11 +93,20 @@ void lcd_set_cursor(uint8_t row, uint8_t column);
 void lcd_clear(void);
 void lcd_backlight(uint8_t state);
 void count_seven_segment(void);
+/*
+ * button weak function define
+ */
+
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-
+void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
+{
+	if ( GPIO_Pin == START_STOP_BTN_Pin ) {
+		btn_flag_1 = 1;
+	}
+}
 /* USER CODE END 0 */
 
 /**
@@ -135,13 +148,12 @@ int main(void)
 
   // seven segment code
   TM1637_SetBrightness(7);
-
   // lcd code
-  char *text = "test";
-  char int_to_str[10] = {'a','b','t','e','s','t'};
+//  char *text = "test";
+//  char int_to_str[10] = {'a','b','t','e','s','t'};
 
   // seven segment
-  int i = 0 ;
+//  int i = 0 ;
 
   /* USER CODE END 2 */
 
@@ -149,24 +161,44 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	  // ramps switch 1.4
-	  if ( !HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_3) & sw_state_1_off )
-	  {
+	  if ( btn_flag_1 == 1 ) {
 		  lcd_clear();
 		  lcd_set_cursor(0, 0);
-		  lcd_write_string("ON");
-		  sw_state_1_on = 1;
-		  sw_state_1_off= 0;
+		  lcd_write_string("press btn!!!");
+		  btn_flag_1 = 0;
+		  if ( sw_state_stop_start )
+		  {
+			  lcd_write_string("start");
+			  CDC_Transmit_FS((uint8_t *)"start\n\r",strlen("start\n\r"));
+		  }
+		  else
+		  {
+			  lcd_write_string("stop");
+			  CDC_Transmit_FS((uint8_t *)"stop\n\r",strlen("stop\n\r"));
+		  }
+		  sw_state_stop_start = !sw_state_stop_start; // 버튼 상태를 변경합니다.
 		  count_seven_segment();
 	  }
-	  else if ( HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_3) & sw_state_1_on )
-	  {
-		  lcd_clear();
-		  lcd_set_cursor(0, 0);
-		  lcd_write_string("OFF");
-		  sw_state_1_off = 1;
-		  sw_state_1_on = 0;
-	  }
+
+	  // ramps switch 1.4 example
+//	  if ( !HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_3) & sw_state_1_off )
+//	  {
+//		  lcd_clear();
+//		  lcd_set_cursor(0, 0);
+//		  lcd_write_string("ON");
+//		  sw_state_1_on = 1;
+//		  sw_state_1_off= 0;
+//		  count_seven_segment();
+//	  }
+//	  else if ( HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_3) & sw_state_1_on )
+//	  {
+//		  lcd_clear();
+//		  lcd_set_cursor(0, 0);
+//		  lcd_write_string("OFF");
+//		  sw_state_1_off = 1;
+//		  sw_state_1_on = 0;
+//	  }
+
 	  // seven segment code
 //	  if ( i >= 10000 ) i = 0;
 //	  displayColon = !displayColon;
@@ -309,17 +341,13 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOB_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_3, GPIO_PIN_RESET);
-
-  /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOB, CLK1_Pin|DIO1_Pin, GPIO_PIN_RESET);
 
-  /*Configure GPIO pin : PA3 */
-  GPIO_InitStruct.Pin = GPIO_PIN_3;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  /*Configure GPIO pin : START_STOP_BTN_Pin */
+  GPIO_InitStruct.Pin = START_STOP_BTN_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+  HAL_GPIO_Init(START_STOP_BTN_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pin : CLK1_Pin */
   GPIO_InitStruct.Pin = CLK1_Pin;
@@ -334,6 +362,10 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
   HAL_GPIO_Init(DIO1_GPIO_Port, &GPIO_InitStruct);
+
+  /* EXTI interrupt init*/
+  HAL_NVIC_SetPriority(EXTI3_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(EXTI3_IRQn);
 
 /* USER CODE BEGIN MX_GPIO_Init_2 */
 /* USER CODE END MX_GPIO_Init_2 */
