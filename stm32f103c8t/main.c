@@ -71,8 +71,14 @@ volatile uint8_t displayColon =0;
 
 // ramps swtich btn
 volatile uint8_t sw_state_stop_start=1; // 1: start, 0: stop
+uint8_t data[6][1] = {
+		{0x00}, {0x01},
+		{0x02}, {0x03},
+		{0x04}, {0x05}
+};
 
 GPIO_PinState btn_flag_1 = 0;
+GPIO_PinState btn_flag_1_test = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -103,7 +109,9 @@ void count_seven_segment(void);
 /* USER CODE BEGIN 0 */
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
-	if ( GPIO_Pin == START_STOP_BTN_Pin ) {
+	for ( int i = 0 ; i < 1000000; i++ ) {} // debouncing delay
+	if (GPIO_Pin == START_STOP_BTN_Pin)
+	{
 		btn_flag_1 = 1;
 	}
 }
@@ -161,21 +169,23 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	  if ( btn_flag_1 == 1 ) {
-		  lcd_clear();
-		  lcd_set_cursor(0, 0);
-		  lcd_write_string("press btn!!!");
-		  btn_flag_1 = 0;
+	  if ( btn_flag_1 == 1 )
+	  {
+		  lcd_clear(); lcd_set_cursor(0, 0); btn_flag_1 = 0;
+
 		  if ( sw_state_stop_start )
 		  {
 			  lcd_write_string("start");
-			  CDC_Transmit_FS((uint8_t *)"start\n\r",strlen("start\n\r"));
+//			  CDC_Transmit_FS((uint8_t *)"0000\n\r",strlen("0000\n\r"));
+			  CDC_Transmit_FS(data[0],1);
 		  }
 		  else
 		  {
 			  lcd_write_string("stop");
-			  CDC_Transmit_FS((uint8_t *)"stop\n\r",strlen("stop\n\r"));
+//			  CDC_Transmit_FS((uint8_t *)"0001\n\r",strlen("0001\n\r"));
+			  CDC_Transmit_FS(data[1],1);
 		  }
+
 		  sw_state_stop_start = !sw_state_stop_start; // 버튼 상태를 변경합니다.
 		  count_seven_segment();
 	  }
@@ -345,7 +355,7 @@ static void MX_GPIO_Init(void)
 
   /*Configure GPIO pin : START_STOP_BTN_Pin */
   GPIO_InitStruct.Pin = START_STOP_BTN_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_FALLING;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(START_STOP_BTN_GPIO_Port, &GPIO_InitStruct);
 
