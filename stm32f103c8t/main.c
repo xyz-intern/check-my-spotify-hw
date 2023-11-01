@@ -48,13 +48,6 @@
 #define LCD_ROWS 2 // Number of rows on the LCD
 #define LCD_COLS 16 // Number of columns on the LCD
 
-/*
- * seven segment define
- */
-//#define cmd_write_data 0x40
-//#define cmd_disp_on 0x88
-//#define cmd_disp_off 0x80
-
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -72,7 +65,20 @@ extern uint8_t UserTxBufferFS[APP_TX_DATA_SIZE];
 
 // lcd code
 uint8_t backlight_state = 1;
+uint8_t count_i = 0;
 
+volatile uint8_t displayColon =0;
+
+// ramps swtich btn
+volatile uint8_t sw_state_stop_start=1; // 1: start, 0: stop
+uint8_t data[6][1] = {
+		{0x00}, {0x01},
+		{0x02}, {0x03},
+		{0x04}, {0x05}
+};
+
+GPIO_PinState btn_flag_1 = 0;
+GPIO_PinState btn_flag_1_test = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -92,28 +98,23 @@ void lcd_write_string(char *str);
 void lcd_set_cursor(uint8_t row, uint8_t column);
 void lcd_clear(void);
 void lcd_backlight(uint8_t state);
-
+void count_seven_segment(void);
 /*
- * seven segemnet functions
+ * button weak function define
  */
-//void TM1637_Clk_High();
-//void TM1637_Clk_Low();
-//void TM1637_Dio_High();
-//void TM1637_Dio_Low();
-//void delay_usec(uint16_t usec);
-//void TM1637_Start();
-//void TM1637_Send_Byte(uint8_t byte);
-//void TM1637_Read_Ack();
-//void TM1637_Stop();
-//void TM1637_bright(uint8_t num);
-//void TM1637_Display_4digit(uint8_t brightness, uint16_t num);
-//void TM1637_count_down(uint16_t num);
 
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-
+void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
+{
+	for ( int i = 0 ; i < 1000000; i++ ) {} // debouncing delay
+	if (GPIO_Pin == START_STOP_BTN_Pin)
+	{
+		btn_flag_1 = 1;
+	}
+}
 /* USER CODE END 0 */
 
 /**
@@ -147,19 +148,20 @@ int main(void)
   MX_USB_DEVICE_Init();
   MX_I2C1_Init();
   /* USER CODE BEGIN 2 */
-  volatile uint8_t displayColon =0;
+//  volatile uint8_t displayColon =0;
 
   // lcd code
-//  lcd_init();
-//  lcd_backlight(1);
+  lcd_init();
+  lcd_backlight(1);
 
   // seven segment code
   TM1637_SetBrightness(7);
-//  tm1637_init(&disp, CLK1_GPIO_Port, CLK1_Pin, DIO1_GPIO_Port, DIO1_Pin);
-
   // lcd code
 //  char *text = "test";
 //  char int_to_str[10] = {'a','b','t','e','s','t'};
+
+  // seven segment
+//  int i = 0 ;
 
   /* USER CODE END 2 */
 
@@ -167,12 +169,51 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	  for ( int i = 0 ; i < 10000 ; i++ )
+	  if ( btn_flag_1 == 1 )
 	  {
-		  displayColon = !displayColon;
-		  TM1637_DisplayDecimal(i, displayColon);
-		  HAL_Delay(1000);
+		  lcd_clear(); lcd_set_cursor(0, 0); btn_flag_1 = 0;
+
+		  if ( sw_state_stop_start )
+		  {
+			  lcd_write_string("start");
+//			  CDC_Transmit_FS((uint8_t *)"0000\n\r",strlen("0000\n\r"));
+			  CDC_Transmit_FS(data[0],1);
+		  }
+		  else
+		  {
+			  lcd_write_string("stop");
+//			  CDC_Transmit_FS((uint8_t *)"0001\n\r",strlen("0001\n\r"));
+			  CDC_Transmit_FS(data[1],1);
+		  }
+
+		  sw_state_stop_start = !sw_state_stop_start; // 버튼 상태를 변경합니다.
+		  count_seven_segment();
 	  }
+
+	  // ramps switch 1.4 example
+//	  if ( !HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_3) & sw_state_1_off )
+//	  {
+//		  lcd_clear();
+//		  lcd_set_cursor(0, 0);
+//		  lcd_write_string("ON");
+//		  sw_state_1_on = 1;
+//		  sw_state_1_off= 0;
+//		  count_seven_segment();
+//	  }
+//	  else if ( HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_3) & sw_state_1_on )
+//	  {
+//		  lcd_clear();
+//		  lcd_set_cursor(0, 0);
+//		  lcd_write_string("OFF");
+//		  sw_state_1_off = 1;
+//		  sw_state_1_on = 0;
+//	  }
+
+	  // seven segment code
+//	  if ( i >= 10000 ) i = 0;
+//	  displayColon = !displayColon;
+//	  TM1637_DisplayDecimal(i, displayColon);
+//	  i++;
 	  /*
 	   * lcd stm32 to PCf8574 I/O i2c controll code
 	   */
@@ -203,7 +244,7 @@ int main(void)
 //	  	  memset(UserRxBufferFS, 0, sizeof(UserRxBufferFS)); // 초기화
 //	  	  memset(UserTxBufferFS, 0, sizeof(UserTxBufferFS)); // 초기화
 //	  }
-//	  HAL_Delay(500);
+//	  HAL_Delay(250);
 
     /* USER CODE END WHILE */
 
@@ -306,11 +347,17 @@ static void MX_GPIO_Init(void)
   /* GPIO Ports Clock Enable */
   __HAL_RCC_GPIOC_CLK_ENABLE();
   __HAL_RCC_GPIOD_CLK_ENABLE();
-  __HAL_RCC_GPIOB_CLK_ENABLE();
   __HAL_RCC_GPIOA_CLK_ENABLE();
+  __HAL_RCC_GPIOB_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOB, CLK1_Pin|DIO1_Pin, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin : START_STOP_BTN_Pin */
+  GPIO_InitStruct.Pin = START_STOP_BTN_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_FALLING;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(START_STOP_BTN_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pin : CLK1_Pin */
   GPIO_InitStruct.Pin = CLK1_Pin;
@@ -325,6 +372,10 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
   HAL_GPIO_Init(DIO1_GPIO_Port, &GPIO_InitStruct);
+
+  /* EXTI interrupt init*/
+  HAL_NVIC_SetPriority(EXTI3_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(EXTI3_IRQn);
 
 /* USER CODE BEGIN MX_GPIO_Init_2 */
 /* USER CODE END MX_GPIO_Init_2 */
@@ -413,6 +464,13 @@ void lcd_backlight(uint8_t state) {
   } else {
     backlight_state = 0;
   }
+}
+
+void count_seven_segment(void) {
+	if ( count_i >= 10000 ) count_i = 0;
+	displayColon = !displayColon;
+	TM1637_DisplayDecimal(count_i, displayColon);
+	count_i++;
 }
 
 /* USER CODE END 4 */
