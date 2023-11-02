@@ -1,21 +1,26 @@
-from my_spotify import Spotify_Controller
-import requests
-
-my_controller = Spotify_Controller(baudrate=115200,port="/dev/serial/by-id/usb-STMicroelectronics_STM32_Virtual_ComPort_8D7F439F5554-if00")
+from serial_controller import Serial_controller
+from my_socket import My_socket
+from lib import *
+my_serial = Serial_controller(baudrate=115200,port="/dev/serial/by-id/usb-STMicroelectronics_STM32_Virtual_ComPort_8D7F439F5554-if00")
+my_socket = My_socket(IP='192.168.0.105',PORT=8765,SIZE=1024)
+# my_socket.close_socket()
 
 while True:
     try:
-        rcv_data = my_controller.ser.read(1)
-        rcv_data = int.from_bytes(rcv_data,'big')
+        rcv_serial_data = my_serial.ser.read(1)
+        rcv_serial_data = int.from_bytes(rcv_serial_data,'big')
+        print(rcv_serial_data)
 
-        print(rcv_data)
-        if rcv_data == 0:
-            command='play'
-        elif rcv_data == 1:
-            command='stop'
+        if rcv_serial_data == 0:
+            command = 'play'
+        elif rcv_serial_data == 1:
+            command = 'stop'
+        else :
+            command = None
 
-        url_items = f'http://192.168.0.133:3000/apis/command/{command}'
-        response = requests.get(url_items)
-        print(response.text)
+        response_data = send_to_nest(command)
+        my_socket.listening_socket()
+        
     except KeyboardInterrupt:
+        my_socket.close_socket()
         break
