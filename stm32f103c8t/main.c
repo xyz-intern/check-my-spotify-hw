@@ -99,10 +99,8 @@ void lcd_set_cursor(uint8_t row, uint8_t column);
 void lcd_clear(void);
 void lcd_backlight(uint8_t state);
 void count_seven_segment(void);
-/*
- * button weak function define
- */
 
+char** split(char* input, const char* delimiter);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -158,7 +156,7 @@ int main(void)
   TM1637_SetBrightness(7);
   // lcd code
 //  char *text = "test";
-//  char int_to_str[10] = {'a','b','t','e','s','t'};
+  char int_to_str[100] = {};
 
   // seven segment
 //  int i = 0 ;
@@ -169,6 +167,20 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+	  char** tokens = split(int_to_str,",");
+
+	  if ( tokens )
+	  {
+		  int i;
+		  lcd_set_cursor(1, 0);
+		  for ( i = 0 ; *(tokens + i ); i++ )
+		  {
+			  lcd_write_string(*(tokens + i));
+			  free(*(tokens + i));
+		  }
+		  free(tokens);
+		  HAL_Delay(2500);
+	  }
 	  if ( btn_flag_1 == 1 )
 	  {
 		  lcd_clear(); lcd_set_cursor(0, 0); btn_flag_1 = 0;
@@ -232,19 +244,18 @@ int main(void)
 	   * strcat((char *)UserTxBufferFS,"\r\n"); // 끝에 문자열 추가하는 거
 	   */
 
-//	  uint16_t len = strlen((const char*)UserRxBufferFS);
-//
-//	  if ( len > 0 )
-//	  { // is data ?
-//		  strncpy((char *)UserTxBufferFS, (const char*)UserRxBufferFS,len);
-//		  strncpy(int_to_str,(const char*)UserRxBufferFS,len);
-//	  	  CDC_Transmit_FS((uint8_t*)UserTxBufferFS, strlen((const char*)UserTxBufferFS)); // 보내기
-//
-//	  	  // memory init , 버퍼 초기화 안하면 꼬임
-//	  	  memset(UserRxBufferFS, 0, sizeof(UserRxBufferFS)); // 초기화
-//	  	  memset(UserTxBufferFS, 0, sizeof(UserTxBufferFS)); // 초기화
-//	  }
-//	  HAL_Delay(250);
+	  uint16_t len = strlen((const char*)UserRxBufferFS);
+
+	  if ( len > 0 )
+	  { // is data ?
+		  strncpy((char *)UserTxBufferFS, (const char*)UserRxBufferFS,len);
+		  strncpy(int_to_str,(const char*)UserRxBufferFS,len);
+	  	  CDC_Transmit_FS((uint8_t*)UserTxBufferFS, strlen((const char*)UserTxBufferFS)); // 보내기
+
+	  	  // memory init , 버퍼 초기화 안하면 꼬임
+	  	  memset(UserRxBufferFS, 0, sizeof(UserRxBufferFS)); // 초기화
+	  	  memset(UserTxBufferFS, 0, sizeof(UserTxBufferFS)); // 초기화
+	  }
 
     /* USER CODE END WHILE */
 
@@ -471,6 +482,53 @@ void count_seven_segment(void) {
 	displayColon = !displayColon;
 	TM1637_DisplayDecimal(count_i, displayColon);
 	count_i++;
+}
+
+char** split(char* input, const char* delimiter)
+{
+	char** result = 0;
+	size_t count = 0;
+	char* tmp = input;
+	char* last_delim = 0;
+	char delim[2];
+	delim[0] = delimiter[0];
+	delim[1] = 0;
+
+	/* Count how many elements will be in the array */
+	while (*tmp) {
+		if (delimiter[0] == *tmp )
+		{
+			count++;
+			last_delim = tmp;
+		}
+
+		tmp++;
+	}
+
+	/* Add space for trailing token */
+	count += last_delim < (input+strlen(input) - 1 );
+
+	/* Add space for terminating null string */
+	count++;
+
+	result = malloc(sizeof(char*) * count);
+
+	if (result)
+	{
+		size_t idx = 0;
+		char* token = strtok(input, delim);
+
+		while (token)
+		{
+			assert(idx < count);
+			*(result + idx++) = strdup(token);
+			token = strtok(0, delim);
+		}
+		assert(idx==count-1);
+		*(result + idx) = 0;
+	}
+
+	return result;
 }
 
 /* USER CODE END 4 */
