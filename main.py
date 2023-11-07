@@ -3,6 +3,7 @@ from my_socket import My_socket
 import lib
 import threading
 import json
+import time
 
 my_serial = Serial_controller(baudrate=115200,
                               port="/dev/serial/by-id/usb-STMicroelectronics_STM32_Virtual_ComPort_8D7F439F5554-if00"
@@ -20,8 +21,6 @@ def serial_to_stm32():
         rcv_serial_data = my_serial.ser.read(1)
         rcv_serial_data = int.from_bytes(rcv_serial_data,'big')
         user_id = lib.read_file_data(write_type='user')
-        print("============command==============")
-        print(f'1. user id : {user_id}')
 
         if rcv_serial_data == 0:
             command = 'play'
@@ -33,21 +32,27 @@ def serial_to_stm32():
 
         response_data = lib.send_to_nest(command,user_id)
         
-        print(f'2. serial btn response data : {response_data}')
+        print(f'2. serial btn response data : {response_data} | command : {command}')
         
-        # if response_data == '음악이 정지되었습니다':
-        #     print(f'3. response data = 음악이 정지되었습니다')
-        #     pass
-        # else:
-        #     # get track 쪽으로 내가 요청해서 데이터 받고
-        #     lib.track_info(user_id=user_id)
-        #     get_track_data = lib.read_file_data('listening')
-        #     if get_track_data == None:
-        #         print('get track data error')
-        #     else :
-        #         print(f'3. serial get track data : {get_track_data}')
-        # print("=============command===========")
-        
+        # if command is None:
+        #     response_data = lib.send_to_nest(command, user_id)
+        #     print(f'2. serial btn response data : {response_data}')
+
+        #     if response_data == '음악이 정지되었습니다':
+        #         print(f'3. response data = 음악이 정지되었습니다')
+        #     else:
+        #         if command == 'play':
+        #             print("NPOOOOOONPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPppppp")
+        #             my_serial.send_to_stm(response_data)
+        #             command = None
+        if response_data == '음악이 정지되었습니다':
+            print(f'3. response data = 음악이 정지되었습니다')
+        else:
+            if command == 'play':
+                my_serial.send_to_stm(response_data)
+                command = None
+
+
 thread_socket = threading.Thread(target=socket_process)
 thread_socket.daemon = True
 thread_socket.start()
@@ -57,19 +62,7 @@ thread_serial.daemon = True
 thread_serial.start()
 
 while True:
-    exit_signal = input('Type "exit" or "EXIT" or "ㄷ턋" anytime to stop server\n')
-    if exit_signal == 'exit' or exit_signal == 'EXIT' or exit_signal == 'ㄷ턋':
+    exit_signal = input('Type "e" or "EXIT" or "ㄷ턋" anytime to stop server\n')
+    if exit_signal == 'e' or exit_signal == 'EXIT' or exit_signal == 'ㄷ턋':
         my_socket.close_socket()
         break
-
-'''
-{
-    "userId":"dlatldhs",
-    "albumName":"Boys Like Girls",
-    "artistName":"BOYS LIKE GIRLS",
-    "songName":"The Great Escape",
-    "imageUri":"https://i.scdn.co/image/ab67616d0000b273317ebb91078852577248ed98",
-    "deviceId":"47ef08f937e0d53323e7d0ff9735ea8df181043e",
-    "count":1
-}
-'''
