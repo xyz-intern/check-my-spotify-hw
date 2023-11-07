@@ -160,27 +160,36 @@ int main(void)
 
   // seven segment
 //  int i = 0 ;
-
+  char** tokens = NULL;
+  uint16_t serial_len = 0 ;
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	  char** tokens = split(int_to_str,",");
+	  serial_len = strlen((const char*)UserRxBufferFS);
 
-	  if ( tokens )
+	  if ( serial_len > 0 )
 	  {
-		  int i;
-		  lcd_set_cursor(1, 0);
-		  for ( i = 0 ; *(tokens + i ); i++ )
+		  strncpy((char *)UserTxBufferFS, (const char*)UserRxBufferFS,serial_len);
+		  strncpy((char *)int_to_str,(const char*)UserTxBufferFS,serial_len);
+		  tokens = split(int_to_str,",");
+		  for ( int i = 0 ; *(tokens +i); i++)
 		  {
-			  lcd_write_string(*(tokens + i));
+			  char* token_str = *(tokens + i);
+			  char token_str_with_a[100] = {};
+			  strcpy(token_str_with_a, token_str);
+			  strcat(token_str_with_a, "a");
+			  CDC_Transmit_FS((uint8_t*)token_str_with_a, strlen(token_str_with_a));
 			  free(*(tokens + i));
 		  }
-		  free(tokens);
-		  HAL_Delay(2500);
+	      free(tokens);
+	      tokens = NULL;
+	      memset(UserRxBufferFS, 0, serial_len);
+	      memset(UserTxBufferFS, 0, serial_len);
 	  }
+
 	  if ( btn_flag_1 == 1 )
 	  {
 		  lcd_clear(); lcd_set_cursor(0, 0); btn_flag_1 = 0;
@@ -244,18 +253,16 @@ int main(void)
 	   * strcat((char *)UserTxBufferFS,"\r\n"); // 끝에 문자열 추가하는 거
 	   */
 
-	  uint16_t len = strlen((const char*)UserRxBufferFS);
-
-	  if ( len > 0 )
-	  { // is data ?
-		  strncpy((char *)UserTxBufferFS, (const char*)UserRxBufferFS,len);
-		  strncpy(int_to_str,(const char*)UserRxBufferFS,len);
-	  	  CDC_Transmit_FS((uint8_t*)UserTxBufferFS, strlen((const char*)UserTxBufferFS)); // 보내기
-
-	  	  // memory init , 버퍼 초기화 안하면 꼬임
-	  	  memset(UserRxBufferFS, 0, sizeof(UserRxBufferFS)); // 초기화
-	  	  memset(UserTxBufferFS, 0, sizeof(UserTxBufferFS)); // 초기화
-	  }
+//	  uint16_t len = strlen((const char*)UserRxBufferFS);
+//
+//	  if ( len > 0 )
+//	  { // is data ?
+//		  strncpy((char *)UserTxBufferFS, (const char*)UserRxBufferFS,len);
+//	  	  CDC_Transmit_FS((uint8_t*)UserTxBufferFS, strlen((const char*)UserTxBufferFS)); // 보내기
+//	  	  // memory init , 버퍼 초기화 안하면 꼬임
+//	  	  memset(UserRxBufferFS, 0, sizeof(UserRxBufferFS)); // 초기화
+//	  	  memset(UserTxBufferFS, 0, sizeof(UserTxBufferFS)); // 초기화
+//	  }
 
     /* USER CODE END WHILE */
 
