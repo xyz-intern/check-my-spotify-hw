@@ -15,7 +15,6 @@ class My_socket:
     
     def listening_socket(self):
         while True:
-
             # 수신대기, 접속한 클라이언트 정보 (소켓, 주소) 반환
             self.client_socket, self.client_addr = self.server_socket.accept()
             
@@ -39,8 +38,8 @@ class My_socket:
 
             self.client_socket.sendall("good socket communication!".encode())
             self.client_socket.close()
+            print("==============socket============")
 
     def close_socket(self):
-        self.client_socket.close()
         self.server_socket.close()
         print('socket is close')

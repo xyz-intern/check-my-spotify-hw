@@ -7,6 +7,9 @@ class Serial_controller:
         self.ser.baudrate = baudrate
         self.ser.port = port
 
+        self.start_byte = b'\x02'
+        self.end_byte = b'\x03'
+
         # Open
         self.ser.open()
     
@@ -15,4 +18,10 @@ class Serial_controller:
         print('serial is close')
     
     def __recv_data(self):
-        pass    
+        pass
+
+    def send_to_stm(self,data):
+        send_data = str(data)
+        send_data_bytes = self.start_byte + send_data.encode('utf-8') + self.end_byte
+        self.ser.write(send_data_bytes)
+        print(f'send to stm32 : {send_data_bytes}')
