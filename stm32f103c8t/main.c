@@ -66,6 +66,7 @@ extern uint8_t UserTxBufferFS[APP_TX_DATA_SIZE];
 // lcd code
 uint8_t backlight_state = 1;
 uint8_t count_i = 0;
+uint8_t lcd_scroll_delay = 1500;
 
 volatile uint8_t displayColon =0;
 
@@ -99,7 +100,8 @@ void lcd_write_string(char *str);
 void lcd_set_cursor(uint8_t row, uint8_t column);
 void lcd_clear(void);
 void lcd_backlight(uint8_t state);
-void lcd_scroll_left(char *str, uint8_t row, uint8_t delay_time)
+void lcd_scroll_left(char *str, uint8_t row, uint8_t delay_time);
+void lcd_scroll_left_right(char *str, uint8_t row, uint8_t delay_time);
 
 void count_seven_segment(void);
 
@@ -154,8 +156,8 @@ int main(void)
   // lcd code
   lcd_init();
   lcd_backlight(1);
-  lcd_write_string("hello world");
   lcd_set_cursor(0, 0);
+  lcd_write_string("hello world");
   // seven segment code
   TM1637_SetBrightness(7);
 
@@ -172,45 +174,57 @@ int main(void)
 	  serial_len = strlen((const char*)UserRxBufferFS);
 
 	  // if serial data is here
-	  if ( serial_len > 0 )
+	  if ( serial_len > 0 && serial_len < 100 ) // buffer overflow
 	  {
 		  // RxBuffer -> TxBuffer
 		  strncpy((char *)UserTxBufferFS, (const char*)UserRxBufferFS,serial_len);
+		  UserTxBufferFS[serial_len] = '\0';
 
 		  // Tx -> int_to_str
 		  strncpy((char *)int_to_str,(const char*)UserTxBufferFS,serial_len);
+		  int_to_str[serial_len] = '\0';
 
 		  // split `,` data
 		  tokens = split(int_to_str,"|");
 
 		  lcd_clear();
 
-		  // ,로 분리한 데이터마다 로직 실행
-		  for ( int i = 0 ; *(tokens +i); i++)
+		  if (tokens != NULL)
 		  {
+			  for ( int i = 0 ; *(tokens +i); i++)
+			  {
 
-			  char* token_str = *(tokens + i); /// *(tokens + i) -> 배열 이름 +0 이런 거랑 같은 거 i 가 바뀌면서 배열의 시작 부분이 바껴서 차근차근 올라가는개념
-			  char token_str_with_a[100] = {};
-			  strcpy(token_str_with_a, token_str);
-//			  strcat(token_str_with_a, "a");
-//			  lcd_set_cursor(i, 0);
-//			  lcd_write_string(token_str_with_a);
-			  lcd_scroll_left(token_str_with_a, i, 500);
-			  CDC_Transmit_FS((uint8_t*)token_str_with_a, strlen(token_str_with_a));
+				  char* token_str = *(tokens + i); /// *(tokens + i) -> 배열 이름 +0 이런 거랑 같은 거 i 가 바뀌면서 배열의 시작 부분이 바껴서 차근차근 올라가는개념
+				  char token_str_with_a[100] = {};
+				  strcpy(token_str_with_a, token_str);
 
-			  // 동적 할당 했기 때문에 필수
-			  free(*(tokens + i));
+	//			  strcat(token_str_with_a, "a");
+	//			  lcd_set_cursor(i, 0);
+	//			  lcd_write_string(token_str_with_a);
+//				  lcd_scroll_left(token_str_with_a, i, lcd_scroll_delay);
+
+				  lcd_scroll_left_right(token_str_with_a,i,lcd_scroll_delay);
+				  CDC_Transmit_FS((uint8_t*)token_str_with_a, strlen(token_str_with_a));
+
+				  // 동적 할당 했기 때문에 필수
+				  free(*(tokens + i));
+			  }
+			  // 이것도 마찬가지
+			  free(tokens);
+			  tokens = NULL;
+
 		  }
-		  // 이것도 마찬가지
-	      free(tokens);
-	      tokens = NULL;
+		  // ,로 분리한 데이터마다 로직 실행
 
 	      // serial 할 때 이거 버퍼 초기화 안하면 로직 꼬임
-	      memset(UserRxBufferFS, 0, serial_len);
-	      memset(UserTxBufferFS, 0, serial_len);
+//	      memset(UserRxBufferFS, 0, serial_len);
+//	      memset(UserTxBufferFS, 0, serial_len);
+	      memset(UserRxBufferFS, 0, sizeof(UserRxBufferFS));
+	      memset(UserTxBufferFS, 0, sizeof(UserTxBufferFS));
 
 	      // 이건 lcd 초기화
-	      memset(int_to_str,0,serial_len);
+//	      memset(int_to_str,0,serial_len);
+	      memset(int_to_str, 0, sizeof(int_to_str));
 	      serial_len = 0;
 	  }
 
@@ -467,6 +481,42 @@ void lcd_scroll_left(char *str, uint8_t row, uint8_t delay_time) {
             HAL_Delay(delay_time);  // 문자열이 왼쪽으로 스크롤되는 속도를 조절
         }
     }
+}
+
+void lcd_scroll_left_right(char *str, uint8_t row, uint8_t delay_time) {
+	int length = strlen(str);
+	if (length <= 16) {
+		lcd_set_cursor(row, 0); lcd_write_string(str);
+	} else {
+
+		lcd_set_cursor(row, 0);
+		char f_temp[17];
+		strncpy(f_temp, str + 0 ,16);
+		f_temp[16] = '\0';
+		lcd_write_string(f_temp);
+		HAL_Delay(2000);
+
+		for (int i = 0; i < length - 15; i++)
+		{
+			lcd_set_cursor(row, 0);
+			char temp[17];
+			strncpy(temp, str + i, 16);
+			temp[16] = '\0';  // 문자열 끝에 null 문자 추가
+	        lcd_write_string(temp);
+	        HAL_Delay(delay_time);  // 문자열이 왼쪽으로 스크롤되는 속도를 조절
+	    }
+		for ( int k = length-16; k > 0 ; k-- )
+		{
+			lcd_set_cursor(row, 0);
+			char temp[17];
+			strncpy(temp, str+ k-1 ,16);
+			temp[16] = '\0';
+			lcd_write_string(temp);
+			HAL_Delay(delay_time);
+		}
+
+	}
+
 }
 
 void count_seven_segment(void) {
