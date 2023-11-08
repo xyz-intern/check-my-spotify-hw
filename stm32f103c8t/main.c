@@ -71,6 +71,7 @@ volatile uint8_t displayColon =0;
 
 // ramps swtich btn
 volatile uint8_t sw_state_stop_start=1; // 1: start, 0: stop
+
 uint8_t data[6][1] = {
 		{0x00}, {0x01},
 		{0x02}, {0x03},
@@ -98,6 +99,8 @@ void lcd_write_string(char *str);
 void lcd_set_cursor(uint8_t row, uint8_t column);
 void lcd_clear(void);
 void lcd_backlight(uint8_t state);
+void lcd_scroll_left(char *str, uint8_t row, uint8_t delay_time)
+
 void count_seven_segment(void);
 
 char** split(char* input, const char* delimiter);
@@ -151,15 +154,12 @@ int main(void)
   // lcd code
   lcd_init();
   lcd_backlight(1);
-
+  lcd_write_string("hello world");
+  lcd_set_cursor(0, 0);
   // seven segment code
   TM1637_SetBrightness(7);
-  // lcd code
-//  char *text = "test";
-  char int_to_str[100] = {};
 
-  // seven segment
-//  int i = 0 ;
+  char int_to_str[100] = {};
   char** tokens = NULL;
   uint16_t serial_len = 0 ;
   /* USER CODE END 2 */
@@ -168,102 +168,70 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+	  // Are you serial data ?
 	  serial_len = strlen((const char*)UserRxBufferFS);
 
+	  // if serial data is here
 	  if ( serial_len > 0 )
 	  {
+		  // RxBuffer -> TxBuffer
 		  strncpy((char *)UserTxBufferFS, (const char*)UserRxBufferFS,serial_len);
+
+		  // Tx -> int_to_str
 		  strncpy((char *)int_to_str,(const char*)UserTxBufferFS,serial_len);
-		  tokens = split(int_to_str,",");
+
+		  // split `,` data
+		  tokens = split(int_to_str,"|");
+
+		  lcd_clear();
+
+		  // ,로 분리한 데이터마다 로직 실행
 		  for ( int i = 0 ; *(tokens +i); i++)
 		  {
-			  char* token_str = *(tokens + i);
+
+			  char* token_str = *(tokens + i); /// *(tokens + i) -> 배열 이름 +0 이런 거랑 같은 거 i 가 바뀌면서 배열의 시작 부분이 바껴서 차근차근 올라가는개념
 			  char token_str_with_a[100] = {};
 			  strcpy(token_str_with_a, token_str);
-			  strcat(token_str_with_a, "a");
+//			  strcat(token_str_with_a, "a");
+//			  lcd_set_cursor(i, 0);
+//			  lcd_write_string(token_str_with_a);
+			  lcd_scroll_left(token_str_with_a, i, 500);
 			  CDC_Transmit_FS((uint8_t*)token_str_with_a, strlen(token_str_with_a));
+
+			  // 동적 할당 했기 때문에 필수
 			  free(*(tokens + i));
 		  }
+		  // 이것도 마찬가지
 	      free(tokens);
 	      tokens = NULL;
+
+	      // serial 할 때 이거 버퍼 초기화 안하면 로직 꼬임
 	      memset(UserRxBufferFS, 0, serial_len);
 	      memset(UserTxBufferFS, 0, serial_len);
+
+	      // 이건 lcd 초기화
+	      memset(int_to_str,0,serial_len);
+	      serial_len = 0;
 	  }
 
 	  if ( btn_flag_1 == 1 )
 	  {
+		  // btn flag 0 으로 만들기
 		  lcd_clear(); lcd_set_cursor(0, 0); btn_flag_1 = 0;
 
+		  // 로직 실행
 		  if ( sw_state_stop_start )
 		  {
-			  lcd_write_string("start");
-//			  CDC_Transmit_FS((uint8_t *)"0000\n\r",strlen("0000\n\r"));
-			  CDC_Transmit_FS(data[0],1);
+			  lcd_write_string("start"); CDC_Transmit_FS(data[0],1);
 		  }
 		  else
 		  {
-			  lcd_write_string("stop");
-//			  CDC_Transmit_FS((uint8_t *)"0001\n\r",strlen("0001\n\r"));
-			  CDC_Transmit_FS(data[1],1);
+			  lcd_write_string("stop");  CDC_Transmit_FS(data[1],1);
 		  }
 
 		  sw_state_stop_start = !sw_state_stop_start; // 버튼 상태를 변경합니다.
 		  count_seven_segment();
 	  }
-
-	  // ramps switch 1.4 example
-//	  if ( !HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_3) & sw_state_1_off )
-//	  {
-//		  lcd_clear();
-//		  lcd_set_cursor(0, 0);
-//		  lcd_write_string("ON");
-//		  sw_state_1_on = 1;
-//		  sw_state_1_off= 0;
-//		  count_seven_segment();
-//	  }
-//	  else if ( HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_3) & sw_state_1_on )
-//	  {
-//		  lcd_clear();
-//		  lcd_set_cursor(0, 0);
-//		  lcd_write_string("OFF");
-//		  sw_state_1_off = 1;
-//		  sw_state_1_on = 0;
-//	  }
-
-	  // seven segment code
-//	  if ( i >= 10000 ) i = 0;
-//	  displayColon = !displayColon;
-//	  TM1637_DisplayDecimal(i, displayColon);
-//	  i++;
-	  /*
-	   * lcd stm32 to PCf8574 I/O i2c controll code
-	   */
-//	  lcd_clear();
-//	  lcd_set_cursor(0, 0);
-//	  lcd_write_string(text);
-//	  lcd_set_cursor(1, 0);
-//	  lcd_write_string(int_to_str);
-//	  memset(int_to_str, 0, sizeof(int_to_str));
-//	  HAL_Delay(1500);
-
-	  /*
-	   * stm32 to pc / serial communication code
-	   * strlen result UserRxBufferFs Size
-	   * \0 을 만나기 전까지의 길이를 반환함 const char * -> 변경 불가 상수 문자열
-	   * strcat((char *)UserTxBufferFS,"\r\n"); // 끝에 문자열 추가하는 거
-	   */
-
-//	  uint16_t len = strlen((const char*)UserRxBufferFS);
-//
-//	  if ( len > 0 )
-//	  { // is data ?
-//		  strncpy((char *)UserTxBufferFS, (const char*)UserRxBufferFS,len);
-//	  	  CDC_Transmit_FS((uint8_t*)UserTxBufferFS, strlen((const char*)UserTxBufferFS)); // 보내기
-//	  	  // memory init , 버퍼 초기화 안하면 꼬임
-//	  	  memset(UserRxBufferFS, 0, sizeof(UserRxBufferFS)); // 초기화
-//	  	  memset(UserTxBufferFS, 0, sizeof(UserTxBufferFS)); // 초기화
-//	  }
-
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -482,6 +450,23 @@ void lcd_backlight(uint8_t state) {
   } else {
     backlight_state = 0;
   }
+}
+
+void lcd_scroll_left(char *str, uint8_t row, uint8_t delay_time) {
+    int length = strlen(str);
+    if (length <= 16) {
+        lcd_set_cursor(row, 0);
+        lcd_write_string(str);
+    } else {
+        for (int i = 0; i < length - 15; i++) {
+            lcd_set_cursor(row, 0);
+            char temp[17];
+            strncpy(temp, str + i, 16);
+            temp[16] = '\0';  // 문자열 끝에 null 문자 추가
+            lcd_write_string(temp);
+            HAL_Delay(delay_time);  // 문자열이 왼쪽으로 스크롤되는 속도를 조절
+        }
+    }
 }
 
 void count_seven_segment(void) {
