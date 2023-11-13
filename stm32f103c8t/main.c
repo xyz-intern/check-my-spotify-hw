@@ -171,8 +171,8 @@ int main(void)
   // lcd code
   lcd_init();
   lcd_backlight(1);
-  lcd_set_cursor(0, 2);
-  lcd_write_string("Start Spotify !!!");
+  lcd_set_cursor(0, 1);
+  lcd_write_string("Start Spotify!");
   // seven segment code
   TM1637_SetBrightness(7);
 
@@ -228,9 +228,6 @@ int main(void)
 			  strcat(title_tmp,"   ");
 			  strcat(artists_tmp,"   ");
 
-			  CDC_Transmit_FS((uint8_t *)title, title_size);
-			  CDC_Transmit_FS((uint8_t *)artists, artists_size);
-
 			  lcd_set_cursor(0, 0);
 			  lcd_write_string(title);
 			  if ( title_size <= LCD_MAX_LENGTH ) {
@@ -251,6 +248,8 @@ int main(void)
 	      memset(UserTxBufferFS, 0, sizeof(UserTxBufferFS));
 
 	      serial_len = 0;
+	      start_tick_title = HAL_GetTick();
+	      start_tick_artists = HAL_GetTick();
 	  }
 
 	  if ( lcd_title_scroll == 1 && HAL_GetTick() - start_tick_title >= LCD_SCROLL_TIME)
@@ -272,7 +271,7 @@ int main(void)
 		  ch_ar = artists_tmp[0];
 		  strcpy(artists_tmp,artists_tmp+1);
 		  artists_tmp[artists_tmp_size-1] = ch_ar;
-		  lcd_set_cursor(0, 0);
+		  lcd_set_cursor(1, 0);
 		  lcd_write_string(artists_tmp);
 	  	  start_tick_artists = HAL_GetTick();
 	  }
@@ -280,7 +279,7 @@ int main(void)
 	  if ( btn_flag_1 == 1 )
 	  {
 		  // btn flag 0 으로 만들기
-		  lcd_clear(); lcd_set_cursor(0, 0); btn_flag_1 = 0;
+		  lcd_clear(); lcd_set_cursor(0, 6); btn_flag_1 = 0;
 
 		  // 로직 실행
 		  if ( sw_state_stop_play )
@@ -290,7 +289,7 @@ int main(void)
 		  else
 		  {
 			  lcd_write_string("stop");  CDC_Transmit_FS(data[1],1);
-			  lcd_title_scroll = 0; lcd_title_scroll = 0;
+			  lcd_artists_scroll=0; lcd_title_scroll=0;
 		  }
 
 		  sw_state_stop_play = !sw_state_stop_play; // 버튼 상태를 변경합니다.
