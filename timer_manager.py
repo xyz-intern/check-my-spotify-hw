@@ -1,6 +1,7 @@
 import threading
 import requests
 import lib
+from serial_controller import Serial_controller
 
 class Timer_Manager:
     def __init__(self):
@@ -12,8 +13,12 @@ class Timer_Manager:
             "User-Agent" : "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/119.0"
         }
         response = requests.get(url_items,timeout=5,headers=headers)
-        print(response.text)
+        timer_serial = Serial_controller(baudrate=115200,port="/dev/serial/by-id/usb-STMicroelectronics_STM32_Virtual_ComPort_8D71326E5652-if00")
+        timer_serial.send_to_stm(response.text)
+
         lib.write_data_in_file(txt=response.text,write_type='listening')
+
+        # stm32 로 보내야함
 
     def set_interval(self,how_long):
         

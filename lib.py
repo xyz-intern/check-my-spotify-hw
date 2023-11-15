@@ -1,8 +1,6 @@
 import requests
-import itertools
-import threading
-import serial
-import socket
+import time
+import json
 
 def send_to_nest(command,user_id):
 
@@ -16,7 +14,7 @@ def send_to_nest(command,user_id):
 
     url_items = f'http://192.168.0.133:3000/apis/command/'
 
-    data = {'command': command, 'user_id': user_id}
+    data = {'command': command, 'userId': user_id}
     response = requests.post(url_items, json=data,timeout=5)
 
     return response.text
@@ -24,15 +22,13 @@ def send_to_nest(command,user_id):
 def write_data_in_file(txt,write_type):
 
     if write_type == 'user':
-        file_url = './user.txt'
-        # origin_data = read_file_data(write_type)
-        # data = origin_data+f'{txt},'
+        file_url = './txts/user.txt'
 
     elif write_type == 'listening':
-        file_url = './listening_info.json'
+        file_url = './txts/listening_info.txt'
     
     else :
-        file_url = './duration.txt'
+        file_url = './txts/duration.txt'
     
     data = txt
     f = open(file_url, 'w')
@@ -42,13 +38,22 @@ def write_data_in_file(txt,write_type):
 def read_file_data(write_type):
 
     if write_type == 'user':
-        file_url = './user.txt'
+        file_url = './txts/user.txt'
 
     elif write_type == 'listening':
-        file_url = './listening_info.json'
+        file_url = './txts/listening_info.txt'
+        f = open(file_url,'r')
+        file_data = f.read()
+        f.close()
+        json_object = json.loads(file_data)
+        time.sleep(3)
+        d1 = json_object['artistName']
+        d2 = json_object['songName']
+        serial_data= f"{d1}|{d2}"
+        return serial_data
     
     else :
-        file_url = './duration.txt'
+        file_url = './txts/duration.txt'
     
     f = open(file_url,'r')
     file_data = f.read()

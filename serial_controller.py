@@ -22,7 +22,7 @@ class Serial_controller:
 
     def send_to_stm(self,data):
         send_data = str(data)
-        send_data_bytes = self.start_byte + send_data.encode('utf-8') + self.end_byte
+        # send_data_bytes = self.start_byte + send_data.encode('utf-8') + self.end_byte
         send_data_bytes = send_data.encode('utf-8')
         self.ser.write(send_data_bytes)
         print(f'send to stm32 : {send_data_bytes}')
