@@ -45,8 +45,9 @@
 #define D6_BIT 6 // Data 6 bit
 #define D7_BIT 7 // Data 7 bit
 
-#define LCD_ROWS 2 // Number of rows on the LCD
-#define LCD_COLS 16 // Number of columns on the LCD
+#define LCD_SCROLL_TIME 1500
+#define LCD_MAX_LENGTH 16
+#define MAX_LENGTH  100
 
 /* USER CODE END PD */
 
@@ -59,6 +60,11 @@
 I2C_HandleTypeDef hi2c1;
 
 /* USER CODE BEGIN PV */
+typedef struct LCDAT {
+	char** tokens;
+	size_t count;
+} LCDAT;
+
 // serial communication code
 extern uint8_t UserRxBufferFS[APP_RX_DATA_SIZE];
 extern uint8_t UserTxBufferFS[APP_TX_DATA_SIZE];
@@ -70,7 +76,14 @@ uint8_t count_i = 0;
 volatile uint8_t displayColon =0;
 
 // ramps swtich btn
-volatile uint8_t sw_state_stop_start=1; // 1: start, 0: stop
+volatile uint8_t sw_state_stop_play=1; // 1: start, 0: stop
+
+volatile uint8_t lcd_title_scroll=0;
+volatile uint8_t lcd_artists_scroll=0;
+
+char title_tmp[MAX_LENGTH] = {};
+char artists_tmp[MAX_LENGTH] = {};
+
 uint8_t data[6][1] = {
 		{0x00}, {0x01},
 		{0x02}, {0x03},
@@ -78,7 +91,7 @@ uint8_t data[6][1] = {
 };
 
 GPIO_PinState btn_flag_1 = 0;
-GPIO_PinState btn_flag_1_test = 0;
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -98,9 +111,13 @@ void lcd_write_string(char *str);
 void lcd_set_cursor(uint8_t row, uint8_t column);
 void lcd_clear(void);
 void lcd_backlight(uint8_t state);
+void lcd_scroll_left(char *str, uint8_t row, uint8_t delay_time);
+void lcd_scroll_left_right(char *str, uint8_t row, uint8_t delay_time);
+
 void count_seven_segment(void);
 
-char** split(char* input, const char* delimiter);
+LCDAT split(char* input, const char* delimiter);
+
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -113,6 +130,10 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 		btn_flag_1 = 1;
 	}
 }
+
+//void HAL_SYSTICK_Callback(void)
+//{
+//}
 /* USER CODE END 0 */
 
 /**
@@ -122,7 +143,6 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 int main(void)
 {
   /* USER CODE BEGIN 1 */
-
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -151,118 +171,130 @@ int main(void)
   // lcd code
   lcd_init();
   lcd_backlight(1);
-
+  lcd_set_cursor(0, 1);
+  lcd_write_string("Start Spotify!");
   // seven segment code
   TM1637_SetBrightness(7);
-  // lcd code
-//  char *text = "test";
-  char int_to_str[100] = {};
 
-  // seven segment
-//  int i = 0 ;
-  char** tokens = NULL;
+//  char** tokens = NULL;
   uint16_t serial_len = 0 ;
+
+  uint32_t start_tick_title= HAL_GetTick();
+  uint32_t start_tick_artists= HAL_GetTick();
+
+  LCDAT tokens;
+  tokens.count = 0;
+  tokens.tokens = NULL;
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+	  // Are you serial data ?
 	  serial_len = strlen((const char*)UserRxBufferFS);
 
-	  if ( serial_len > 0 )
+	  // if serial data is here
+	  if ( serial_len > 0 && serial_len < 200 ) // buffer overflow
 	  {
+		  // RxBuffer -> TxBuffer
 		  strncpy((char *)UserTxBufferFS, (const char*)UserRxBufferFS,serial_len);
-		  strncpy((char *)int_to_str,(const char*)UserTxBufferFS,serial_len);
-		  tokens = split(int_to_str,",");
-		  for ( int i = 0 ; *(tokens +i); i++)
+		  UserTxBufferFS[serial_len] = '\0';
+
+		  tokens.count = 0;
+		  tokens.tokens = NULL;
+		  free(tokens.tokens);
+
+		  // split `,` data
+		  tokens = split((char *)UserTxBufferFS,"|");
+
+		  lcd_clear();
+
+		  if ( tokens.count == 2 )
 		  {
-			  char* token_str = *(tokens + i);
-			  char token_str_with_a[100] = {};
-			  strcpy(token_str_with_a, token_str);
-			  strcat(token_str_with_a, "a");
-			  CDC_Transmit_FS((uint8_t*)token_str_with_a, strlen(token_str_with_a));
-			  free(*(tokens + i));
+			  char* title = *(tokens.tokens+0);
+			  char* artists = *(tokens.tokens+1);
+
+			  size_t title_size = strlen(title);
+			  size_t artists_size = strlen(artists);
+
+			  memset((uint8_t *)title_tmp,0,strlen(title_tmp));
+			  memset((uint8_t *)artists_tmp,0,strlen(artists_tmp));
+
+
+			  strncpy((char *)title_tmp,(const char *)title,title_size);
+			  strncpy((char *)artists_tmp,(const char *)artists,artists_size);
+
+			  strcat(title_tmp,"   ");
+			  strcat(artists_tmp,"   ");
+
+			  lcd_set_cursor(0, 0);
+			  lcd_write_string(title);
+			  if ( title_size <= LCD_MAX_LENGTH ) {
+				  lcd_title_scroll = 0;
+			  } else {
+				  lcd_title_scroll = 1;
+			  }
+
+			  lcd_set_cursor(1, 0);
+			  lcd_write_string(artists);
+			  if ( artists_size <= LCD_MAX_LENGTH ) {
+				  lcd_artists_scroll  = 0;
+			  } else {
+				  lcd_artists_scroll  = 1;
+			  }
 		  }
-	      free(tokens);
-	      tokens = NULL;
-	      memset(UserRxBufferFS, 0, serial_len);
-	      memset(UserTxBufferFS, 0, serial_len);
+	      memset(UserRxBufferFS, 0, sizeof(UserRxBufferFS));
+	      memset(UserTxBufferFS, 0, sizeof(UserTxBufferFS));
+
+	      serial_len = 0;
+	      start_tick_title = HAL_GetTick();
+	      start_tick_artists = HAL_GetTick();
+	  }
+
+	  if ( lcd_title_scroll == 1 && HAL_GetTick() - start_tick_title >= LCD_SCROLL_TIME)
+	  {
+		  int title_tmp_size = strlen(title_tmp);
+		  char ch_ti = 0;
+		  ch_ti = title_tmp[0];
+		  strcpy(title_tmp,title_tmp+1);
+		  title_tmp[title_tmp_size-1] = ch_ti;
+		  lcd_set_cursor(0, 0);
+		  lcd_write_string(title_tmp);
+		  start_tick_title = HAL_GetTick();
+	  }
+
+	  if ( lcd_artists_scroll == 1 && HAL_GetTick() - start_tick_artists >= LCD_SCROLL_TIME)
+	  {
+		  int artists_tmp_size = strlen(artists_tmp);
+		  char ch_ar = 0;
+		  ch_ar = artists_tmp[0];
+		  strcpy(artists_tmp,artists_tmp+1);
+		  artists_tmp[artists_tmp_size-1] = ch_ar;
+		  lcd_set_cursor(1, 0);
+		  lcd_write_string(artists_tmp);
+	  	  start_tick_artists = HAL_GetTick();
 	  }
 
 	  if ( btn_flag_1 == 1 )
 	  {
-		  lcd_clear(); lcd_set_cursor(0, 0); btn_flag_1 = 0;
+		  // btn flag 0 으로 만들기
+		  lcd_clear(); lcd_set_cursor(0, 6); btn_flag_1 = 0;
 
-		  if ( sw_state_stop_start )
+		  // 로직 실행
+		  if ( sw_state_stop_play )
 		  {
-			  lcd_write_string("start");
-//			  CDC_Transmit_FS((uint8_t *)"0000\n\r",strlen("0000\n\r"));
-			  CDC_Transmit_FS(data[0],1);
+			  lcd_write_string("play"); CDC_Transmit_FS(data[0],1);
 		  }
 		  else
 		  {
-			  lcd_write_string("stop");
-//			  CDC_Transmit_FS((uint8_t *)"0001\n\r",strlen("0001\n\r"));
-			  CDC_Transmit_FS(data[1],1);
+			  lcd_write_string("stop");  CDC_Transmit_FS(data[1],1);
+			  lcd_artists_scroll=0; lcd_title_scroll=0;
 		  }
 
-		  sw_state_stop_start = !sw_state_stop_start; // 버튼 상태를 변경합니다.
+		  sw_state_stop_play = !sw_state_stop_play; // 버튼 상태를 변경합니다.
 		  count_seven_segment();
 	  }
-
-	  // ramps switch 1.4 example
-//	  if ( !HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_3) & sw_state_1_off )
-//	  {
-//		  lcd_clear();
-//		  lcd_set_cursor(0, 0);
-//		  lcd_write_string("ON");
-//		  sw_state_1_on = 1;
-//		  sw_state_1_off= 0;
-//		  count_seven_segment();
-//	  }
-//	  else if ( HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_3) & sw_state_1_on )
-//	  {
-//		  lcd_clear();
-//		  lcd_set_cursor(0, 0);
-//		  lcd_write_string("OFF");
-//		  sw_state_1_off = 1;
-//		  sw_state_1_on = 0;
-//	  }
-
-	  // seven segment code
-//	  if ( i >= 10000 ) i = 0;
-//	  displayColon = !displayColon;
-//	  TM1637_DisplayDecimal(i, displayColon);
-//	  i++;
-	  /*
-	   * lcd stm32 to PCf8574 I/O i2c controll code
-	   */
-//	  lcd_clear();
-//	  lcd_set_cursor(0, 0);
-//	  lcd_write_string(text);
-//	  lcd_set_cursor(1, 0);
-//	  lcd_write_string(int_to_str);
-//	  memset(int_to_str, 0, sizeof(int_to_str));
-//	  HAL_Delay(1500);
-
-	  /*
-	   * stm32 to pc / serial communication code
-	   * strlen result UserRxBufferFs Size
-	   * \0 을 만나기 전까지의 길이를 반환함 const char * -> 변경 불가 상수 문자열
-	   * strcat((char *)UserTxBufferFS,"\r\n"); // 끝에 문자열 추가하는 거
-	   */
-
-//	  uint16_t len = strlen((const char*)UserRxBufferFS);
-//
-//	  if ( len > 0 )
-//	  { // is data ?
-//		  strncpy((char *)UserTxBufferFS, (const char*)UserRxBufferFS,len);
-//	  	  CDC_Transmit_FS((uint8_t*)UserTxBufferFS, strlen((const char*)UserTxBufferFS)); // 보내기
-//	  	  // memory init , 버퍼 초기화 안하면 꼬임
-//	  	  memset(UserRxBufferFS, 0, sizeof(UserRxBufferFS)); // 초기화
-//	  	  memset(UserTxBufferFS, 0, sizeof(UserTxBufferFS)); // 초기화
-//	  }
 
     /* USER CODE END WHILE */
 
@@ -484,6 +516,47 @@ void lcd_backlight(uint8_t state) {
   }
 }
 
+void lcd_scroll_left(char *str, uint8_t row, uint8_t delay_time) {
+    int length = strlen(str);
+    if (length <= 16) {
+        lcd_set_cursor(row, 0);
+        lcd_write_string(str);
+    } else {
+        for (int i = 0; i < length - 15; i++) {
+            lcd_set_cursor(row, 0);
+            char temp[17];
+            strncpy(temp, str + i, 16);
+            temp[16] = '\0';  // 문자열 끝에 null 문자 추가
+            lcd_write_string(temp);
+            HAL_Delay(delay_time);  // 문자열이 왼쪽으로 스크롤되는 속도를 조절
+        }
+    }
+}
+
+void lcd_scroll_left_right(char *str, uint8_t row, uint8_t delay_time) {
+
+	static uint32_t previous_tick[2] = {0, 0};
+	    static int i[2] = {0, 0};
+	    int length = strlen(str);
+
+	    if (HAL_GetTick() - previous_tick[row] >= delay_time) {
+	        previous_tick[row] = HAL_GetTick();
+
+	        if (length <= 16) {
+	            lcd_set_cursor(row, 0);
+	            lcd_write_string(str);
+	        } else {
+	            lcd_set_cursor(row, 0);
+	            char temp[17];
+	            strncpy(temp, str + i[row], 16);
+	            temp[16] = '\0';  // 문자열 끝에 null 문자 추가
+	            lcd_write_string(temp);
+
+	            i[row] = (i[row] + 1) % (length - 15);
+	        }
+	    }
+}
+
 void count_seven_segment(void) {
 	if ( count_i >= 10000 ) count_i = 0;
 	displayColon = !displayColon;
@@ -491,7 +564,7 @@ void count_seven_segment(void) {
 	count_i++;
 }
 
-char** split(char* input, const char* delimiter)
+LCDAT split(char* input, const char* delimiter)
 {
 	char** result = 0;
 	size_t count = 0;
@@ -535,9 +608,12 @@ char** split(char* input, const char* delimiter)
 		*(result + idx) = 0;
 	}
 
-	return result;
-}
+	LCDAT ArtisTitle;
+	ArtisTitle.tokens = result;
+	ArtisTitle.count = count - 1;
 
+	return ArtisTitle;
+}
 /* USER CODE END 4 */
 
 /**
