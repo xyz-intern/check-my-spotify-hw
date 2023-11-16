@@ -1,6 +1,7 @@
 import requests
 import time
 import json
+import papago
 
 def send_to_nest(command,user_id):
 
@@ -13,11 +14,37 @@ def send_to_nest(command,user_id):
     '''
 
     url_items = f'http://192.168.0.133:3000/apis/command/'
-
+    result_str = ''
     data = {'command': command, 'userId': user_id}
     response = requests.post(url_items, json=data,timeout=5)
+    response_list_zero = False
+    response_list_one  = False
 
-    return response.text
+    if command == 'play':
+        response_list = response.text.split('|')
+
+        for ch in response_list[0]:
+            if '가' <= ch <= '힣':  # 한글의 유니코드 범위
+                response_list_zero = True
+
+        if response_list_zero:
+            result_str += papago.english_to_korean(response_list[0]) +'|'
+        else:
+            result_str += response_list[0]+'|'
+
+        for ch in response_list[1]:
+            if '가' <= ch <= '힣':  # 한글의 유니코드 범위
+                response_list_one = True
+        
+        if response_list_one:
+            result_str += papago.english_to_korean(response_list[1])
+        else:
+            result_str += response_list[1]
+
+        return result_str
+
+    elif command == 'stop':
+        return response.text
 
 def write_data_in_file(txt,write_type):
 
