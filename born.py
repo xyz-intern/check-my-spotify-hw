@@ -5,8 +5,7 @@ import serial
 import socket
 import urllib.request
 
-client_id = "JTmMfEvo7N5WS1qQE4cP" # 개발자센터에서 발급받은 Client ID 값
-client_secret = "dgHZK91_SY" # 개발자센터에서 발급받은 Client Secret 값
+
 
 def write_data_in_file(txt,write_type):
 
