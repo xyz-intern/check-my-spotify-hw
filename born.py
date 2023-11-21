@@ -4,6 +4,7 @@ import threading
 import serial
 import socket
 import urllib.request
+import time
 
 
 
@@ -66,9 +67,10 @@ class Timer_Manager:
         headers = {
             "User-Agent" : "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/119.0"
         }
-        response = requests.get(url_items,timeout=5,headers=headers)
-        timer_serial = Serial_controller(baudrate=115200,port="/dev/serial/by-id/usb-STMicroelectronics_STM32_Virtual_ComPort_8D71326E5652-if00")
-        timer_serial.send_to_stm(response.text)
+        response = requests.get(url_items,headers=headers,timeout=5)
+
+        # timer_serial = Serial_controller(baudrate=115200,port="/dev/serial/by-id/usb-STMicroelectronics_STM32_Virtual_ComPort_8D71326E5652-if00")
+        # timer_serial.send_to_stm(response.text)
 
         write_data_in_file(txt=response.text,write_type='listening')
         return response.text
@@ -169,14 +171,18 @@ def settup_lcd_data(data):
     else:
         result_str += response_list[0]+'|'
 
-    for ch in response_list[1]:
-        if '가' <= ch <= '힣':  # 한글의 유니코드 범위
-            response_list_one = True
-        
-    if response_list_one:
-        result_str += english_to_korean(response_list[1])
-    else:
-        result_str += response_list[1]
+    if response_list[1] is None:
+        result_str += 'test'
+    else :
+
+        for ch in response_list[1]:
+            if '가' <= ch <= '힣':  # 한글의 유니코드 범위
+                response_list_one = True
+            
+        if response_list_one:
+            result_str += english_to_korean(response_list[1])
+        else:
+            result_str += response_list[1]
 
     return result_str
 
@@ -209,7 +215,7 @@ def send_to_nest(command,user_id):
         data = {'command': command, 'userId': user_id}
         
         # send
-        response = requests.post(url_items, json=data,timeout=5)
+        response = requests.post(url_items, json=data,timeout=20)
 
         if command == 'play':
             return settup_lcd_data(response.text)
@@ -219,8 +225,11 @@ def send_to_nest(command,user_id):
             return 'Music is|Stop!!!'
         
         elif command == 'prev' or command == 'next':
+            timer_manager.cancle_timer()
             timer_manager.set_interval(int(read_file_data('duration')))
-            stm_data= settup_lcd_data(timer_manager.timer_get_track_info(user_id=user_id))
+            time.sleep(2.5)
+            data2 = timer_manager.timer_get_track_info(user_id=user_id)
+            stm_data= settup_lcd_data(data2)
             return stm_data
 
 def socket_process():
@@ -271,7 +280,7 @@ def serial_to_stm32():
         elif rcv_serial_data == 5 and not command_sent:
             command = '1'
             command_sent = True  # 요청을 보냄
-        
+
         else:
             command = None
 
@@ -294,6 +303,6 @@ thread_serial.daemon = True
 thread_serial.start()
 
 while True:
-    exit_signal = input('Type "exit" anytime to stop server\n')
-    if exit_signal == 'exit':
+    exit_signal = input('Type "e" anytime to stop server\n')
+    if exit_signal == 'e':
         break
