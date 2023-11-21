@@ -49,6 +49,7 @@
 #define LCD_MAX_LENGTH 16
 #define MAX_LENGTH  100
 
+#define DOUBLE_CLICK__TIME 700
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -85,12 +86,25 @@ char title_tmp[MAX_LENGTH] = {};
 char artists_tmp[MAX_LENGTH] = {};
 
 uint8_t data[6][1] = {
-		{0x00}, {0x01},
-		{0x02}, {0x03},
-		{0x04}, {0x05}
+		{0x00}, {0x01}, // 000 001
+		{0x02}, {0x03}, // 010 011
+		{0x04}, {0x05}  // 011 100
 };
 
 GPIO_PinState btn_flag_1 = 0;
+GPIO_PinState btn_flag_2 = 0;
+GPIO_PinState btn_flag_3 = 0;
+
+uint32_t np_old_tick     = 0;
+uint32_t np_current_tick = 0;
+uint32_t np_delay_time = 0 ;
+GPIO_PinState np_is_double_click = 0;
+
+uint32_t vol_old_tick     = 0;
+uint32_t vol_current_tick = 0;
+uint32_t vol_delay_time = 0 ;
+GPIO_PinState vol_is_double_click = 0;
+
 
 /* USER CODE END PV */
 
@@ -111,10 +125,10 @@ void lcd_write_string(char *str);
 void lcd_set_cursor(uint8_t row, uint8_t column);
 void lcd_clear(void);
 void lcd_backlight(uint8_t state);
-void lcd_scroll_left(char *str, uint8_t row, uint8_t delay_time);
-void lcd_scroll_left_right(char *str, uint8_t row, uint8_t delay_time);
 
+/*
 void count_seven_segment(void);
+*/
 
 LCDAT split(char* input, const char* delimiter);
 
@@ -125,10 +139,47 @@ LCDAT split(char* input, const char* delimiter);
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
 	for ( int i = 0 ; i < 1000000; i++ ) {} // debouncing delay
+
 	if (GPIO_Pin == START_STOP_BTN_Pin)
 	{
 		btn_flag_1 = 1;
 	}
+	else if ( GPIO_Pin == NEXT_PREVIOUS_BTN_Pin )
+	{
+
+		np_current_tick = HAL_GetTick();
+		// if double press ? NP_BTN_TIME 전에 또 눌린게 있다면
+		if ( np_current_tick - np_old_tick < DOUBLE_CLICK__TIME && btn_flag_2 ==1 )
+		{
+			// 두번 눌렸다고 확인
+			np_is_double_click=1;
+			btn_flag_2=0;
+		}
+		else
+		{
+			np_is_double_click =0;
+			btn_flag_2=1;
+		}
+		np_old_tick = HAL_GetTick();
+	}
+	else if ( GPIO_Pin == VOLUMN_UP_DOWN_Pin )
+		{
+
+			vol_current_tick = HAL_GetTick();
+			// if double press ? NP_BTN_TIME 전에 또 눌린게 있다면
+			if ( vol_current_tick - vol_old_tick < DOUBLE_CLICK__TIME && btn_flag_3 ==1 )
+			{
+				// 두번 눌렸다고 확인
+				vol_is_double_click=1;
+				btn_flag_3=0;
+			}
+			else
+			{
+				vol_is_double_click =0;
+				btn_flag_3=1;
+			}
+			vol_old_tick = HAL_GetTick();
+		}
 }
 
 //void HAL_SYSTICK_Callback(void)
@@ -195,7 +246,7 @@ int main(void)
 	  serial_len = strlen((const char*)UserRxBufferFS);
 
 	  // if serial data is here
-	  if ( serial_len > 0 && serial_len < 200 ) // buffer overflow
+	  if ( serial_len > 0 && serial_len < 300 ) // buffer overflow
 	  {
 		  // RxBuffer -> TxBuffer
 		  strncpy((char *)UserTxBufferFS, (const char*)UserRxBufferFS,serial_len);
@@ -293,7 +344,29 @@ int main(void)
 		  }
 
 		  sw_state_stop_play = !sw_state_stop_play; // 버튼 상태를 변경합니다.
-		  count_seven_segment();
+//		  count_seven_segment();
+	  }
+
+	  if ( np_is_double_click == 0 && btn_flag_2 == 1)
+	  {
+		  btn_flag_2 = 0; lcd_clear(); lcd_set_cursor(0,6);
+		  lcd_write_string("next"); CDC_Transmit_FS(data[2], 1); // 010 next
+	  }
+	  if ( np_is_double_click == 1 && btn_flag_2 == 0 )
+	  {
+		  np_is_double_click=0;lcd_clear(); lcd_set_cursor(0,6);
+		  lcd_write_string("prev"); CDC_Transmit_FS(data[3], 1); // 011 prev
+	  }
+
+	  if ( vol_is_double_click == 0 && btn_flag_3 == 1)
+	  {
+		  btn_flag_3 = 0; lcd_clear(); lcd_set_cursor(0,4);
+		  lcd_write_string("volumn up"); CDC_Transmit_FS(data[4], 1); // 100 next
+	  }
+	  if ( vol_is_double_click == 1 && btn_flag_3 == 0 )
+	  {
+		  vol_is_double_click=0;lcd_clear(); lcd_set_cursor(0,2);
+		  lcd_write_string("volumn down"); CDC_Transmit_FS(data[5], 1); // 101 prev
 	  }
 
     /* USER CODE END WHILE */
@@ -342,7 +415,7 @@ void SystemClock_Config(void)
     Error_Handler();
   }
   PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_USB;
-  PeriphClkInit.UsbClockSelection = RCC_USBCLKSOURCE_PLL;
+  PeriphClkInit.UsbClockSelection = RCC_USBCL	KSOURCE_PLL;
   if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInit) != HAL_OK)
   {
     Error_Handler();
@@ -403,11 +476,11 @@ static void MX_GPIO_Init(void)
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOB, CLK1_Pin|DIO1_Pin, GPIO_PIN_RESET);
 
-  /*Configure GPIO pin : START_STOP_BTN_Pin */
-  GPIO_InitStruct.Pin = START_STOP_BTN_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_IT_FALLING;
+  /*Configure GPIO pins : START_STOP_BTN_Pin NEXT_PREVIOUS_BTN_Pin VOLUMN_UP_DOWN_Pin */
+  GPIO_InitStruct.Pin = START_STOP_BTN_Pin|NEXT_PREVIOUS_BTN_Pin|VOLUMN_UP_DOWN_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
-  HAL_GPIO_Init(START_STOP_BTN_GPIO_Port, &GPIO_InitStruct);
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
   /*Configure GPIO pin : CLK1_Pin */
   GPIO_InitStruct.Pin = CLK1_Pin;
@@ -426,6 +499,12 @@ static void MX_GPIO_Init(void)
   /* EXTI interrupt init*/
   HAL_NVIC_SetPriority(EXTI3_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(EXTI3_IRQn);
+
+  HAL_NVIC_SetPriority(EXTI4_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(EXTI4_IRQn);
+
+  HAL_NVIC_SetPriority(EXTI9_5_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(EXTI9_5_IRQn);
 
 /* USER CODE BEGIN MX_GPIO_Init_2 */
 /* USER CODE END MX_GPIO_Init_2 */
@@ -515,54 +594,14 @@ void lcd_backlight(uint8_t state) {
     backlight_state = 0;
   }
 }
-
-void lcd_scroll_left(char *str, uint8_t row, uint8_t delay_time) {
-    int length = strlen(str);
-    if (length <= 16) {
-        lcd_set_cursor(row, 0);
-        lcd_write_string(str);
-    } else {
-        for (int i = 0; i < length - 15; i++) {
-            lcd_set_cursor(row, 0);
-            char temp[17];
-            strncpy(temp, str + i, 16);
-            temp[16] = '\0';  // 문자열 끝에 null 문자 추가
-            lcd_write_string(temp);
-            HAL_Delay(delay_time);  // 문자열이 왼쪽으로 스크롤되는 속도를 조절
-        }
-    }
-}
-
-void lcd_scroll_left_right(char *str, uint8_t row, uint8_t delay_time) {
-
-	static uint32_t previous_tick[2] = {0, 0};
-	    static int i[2] = {0, 0};
-	    int length = strlen(str);
-
-	    if (HAL_GetTick() - previous_tick[row] >= delay_time) {
-	        previous_tick[row] = HAL_GetTick();
-
-	        if (length <= 16) {
-	            lcd_set_cursor(row, 0);
-	            lcd_write_string(str);
-	        } else {
-	            lcd_set_cursor(row, 0);
-	            char temp[17];
-	            strncpy(temp, str + i[row], 16);
-	            temp[16] = '\0';  // 문자열 끝에 null 문자 추가
-	            lcd_write_string(temp);
-
-	            i[row] = (i[row] + 1) % (length - 15);
-	        }
-	    }
-}
-
+/*
 void count_seven_segment(void) {
 	if ( count_i >= 10000 ) count_i = 0;
 	displayColon = !displayColon;
 	TM1637_DisplayDecimal(count_i, displayColon);
 	count_i++;
 }
+*/
 
 LCDAT split(char* input, const char* delimiter)
 {
