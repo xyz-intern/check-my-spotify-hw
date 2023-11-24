@@ -6,7 +6,8 @@ import socket
 import urllib.request
 import time
 
-
+client_id= 'JTmMfEvo7N5WS1qQE4cP'
+client_secret = 'CGI18ZbxfH'
 
 def write_data_in_file(txt,write_type):
 
@@ -67,7 +68,7 @@ class Timer_Manager:
         headers = {
             "User-Agent" : "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/119.0"
         }
-        response = requests.get(url_items,headers=headers,timeout=5)
+        response = requests.get(url_items,headers=headers,timeout=5,verify=False)
 
         # timer_serial = Serial_controller(baudrate=115200,port="/dev/serial/by-id/usb-STMicroelectronics_STM32_Virtual_ComPort_8D71326E5652-if00")
         # timer_serial.send_to_stm(response.text)
@@ -152,38 +153,28 @@ def english_to_korean(papago_quote):
     return str(translated_text)
 
 def settup_lcd_data(data):
-    
-    # vairable
-    response_list_zero = False
-    response_list_one  = False
+    do_trans  = False
+    trans_frist = False
     result_str = ''
 
     # data split
     response_list = data.split('|')
 
-    for ch in response_list[0]:
-        if '가' <= ch <= '힣':  # 한글의 유니코드 범위
-            response_list_zero = True
-
-    if response_list_zero:
-        result_str += english_to_korean(response_list[0]) +'|'
-    
-    else:
-        result_str += response_list[0]+'|'
-
-    if response_list[1] is None:
-        result_str += 'test'
-    else :
-
-        for ch in response_list[1]:
+    for rl in response_list:
+        for ch in rl:
             if '가' <= ch <= '힣':  # 한글의 유니코드 범위
-                response_list_one = True
-            
-        if response_list_one:
-            result_str += english_to_korean(response_list[1])
+                do_trans = True        
+        print(rl)
+        if do_trans and trans_frist == False:
+            result_str += english_to_korean(rl) +'|'
+            trans_frist = True
+        elif do_trans and trans_frist:
+            result_str += english_to_korean(rl)
+        elif do_trans == False and trans_frist == False:
+            result_str += rl + '|'
         else:
-            result_str += response_list[1]
-
+            result_str += rl
+    print(result_str)
     return result_str
 
 def send_to_nest(command,user_id):
@@ -202,8 +193,8 @@ def send_to_nest(command,user_id):
         else :
             data = {'volume': True , 'userId': user_id}
 
-        response = requests.post(url_items, json=data)
-        return response.text
+        response = requests.post(url_items, json=data,verify=False)
+        return response.text+'|test'
     
     else:
 
@@ -215,7 +206,7 @@ def send_to_nest(command,user_id):
         data = {'command': command, 'userId': user_id}
         
         # send
-        response = requests.post(url_items, json=data,timeout=20)
+        response = requests.post(url_items, json=data,timeout=20,verify=False)
 
         if command == 'play':
             return settup_lcd_data(response.text)
