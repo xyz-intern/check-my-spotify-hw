@@ -5,9 +5,15 @@ import serial
 import socket
 import urllib.request
 import time
+from dotenv import load_dotenv
+import os
 
-client_id= 'JTmMfEvo7N5WS1qQE4cP'
-client_secret = 'CGI18ZbxfH'
+# load .env
+load_dotenv()
+
+client_id = os.environ.get('papago_client_id')
+client_secret = os.environ.get('papago_client_secret')
+print(f'env file cli_id :{client_id} , cli_scre :{client_secret}')
 
 def write_data_in_file(txt,write_type):
 
@@ -129,8 +135,6 @@ class My_socket:
     def close_socket(self):
         self.server_socket.close()
         print('socket is close')
-
-
 
 def english_to_korean(papago_quote):
     encText = urllib.parse.quote(papago_quote)
