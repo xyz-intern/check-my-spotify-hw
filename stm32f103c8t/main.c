@@ -88,6 +88,7 @@ char artists_tmp[MAX_LENGTH] = {};
 
 uint32_t duration_time_tmp =0;
 uint32_t full_time_tmp=0;
+uint32_t display_mode = 1;
 
 uint8_t data[6][1] = {
 		{0x00}, {0x01}, // 000 001
@@ -192,6 +193,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 	else if ( GPIO_Pin == TRANSFORM_DISPLAY_Pin )
 	{
 		btn_flag_4 = !btn_flag_4;
+
 	}
 }
 
@@ -256,93 +258,105 @@ int main(void)
 	  // Are you serial data ?
 	  serial_len = strlen((const char*)UserRxBufferFS);
 
-	  // if serial data is here
-//	  if ( serial_len > 0 && serial_len < 300 ) // buffer overflow
-//	  {
-//		  // RxBuffer -> TxBuffer
-//		  strncpy((char *)UserTxBufferFS, (const char*)UserRxBufferFS,serial_len);
-//		  UserTxBufferFS[serial_len] = '\0';
-//
-//		  tokens.count = 0;
-//		  tokens.tokens = NULL;
-//		  free(tokens.tokens);
-//
-//		  // split `,` data
-//		  tokens = split((char *)UserTxBufferFS,"|");
-//
-//		  lcd_clear();
-//
-//		  char* serial_type = *(tokens.tokens+0);
-//
-//		  if ( strcmp(serial_type,display_type_1) == 0 )
-//		  {
-//			  char* title = *(tokens.tokens+1);
-//			  char* artists = *(tokens.tokens+2);
-//
-//			  size_t title_size = strlen(title);
-//			  size_t artists_size = strlen(artists);
-//
-//			  memset((uint8_t *)title_tmp,0,strlen(title_tmp));
-//			  memset((uint8_t *)artists_tmp,0,strlen(artists_tmp));
-//
-//			  strncpy((char *)title_tmp,(const char *)title,title_size);
-//			  strncpy((char *)artists_tmp,(const char *)artists,artists_size);
-//
-//			  strcat(title_tmp,"   ");
-//			  strcat(artists_tmp,"   ");
-//
-//			  lcd_set_cursor(0, 0);
-//			  lcd_write_string(title);
-//			  if ( title_size <= LCD_MAX_LENGTH ) { lcd_title_scroll = 0; }
-//			  else { lcd_title_scroll = 1; }
-//
-//			  lcd_set_cursor(1, 0);
-//			  lcd_write_string(artists);
-//
-//			  if ( artists_size <= LCD_MAX_LENGTH ) { lcd_artists_scroll  = 0; }
-//			  else { lcd_artists_scroll  = 1; }
-//
-//
-//			  start_tick_title = HAL_GetTick();
-//			  start_tick_artists = HAL_GetTick();
-//		  }
-//		  else if ( strcmp(serial_type,display_type_2) == 0)
-//		  {
-//			  char* duration_time = *(tokens.tokens+1);
-//			  char* full_time = *(tokens.tokens+2);
-//
-//			  size_t du_size = strlen(duration_time);
-//			  size_t fu_size = strlen(full_time);
-//
-//			  duration_time_tmp = atoi(duration_time) / 0.001;
-//			  full_time_tmp = atoi(full_time) / 0.001;
-//
-//			  is_playing = 1;
-//			  duration_tick = HAL_GetTick();
-//		  }
-//		  memset(UserRxBufferFS, 0, sizeof(UserRxBufferFS));
-//		  memset(UserTxBufferFS, 0, sizeof(UserTxBufferFS));
-//		  serial_len = 0;
-//	  }
+//	   if serial data is here
+	  if ( serial_len > 0 && serial_len < 300 ) // buffer overflow
+	  {
+		  // RxBuffer -> TxBuffer
+		  strncpy((char *)UserTxBufferFS, (const char*)UserRxBufferFS,serial_len);
+		  UserTxBufferFS[serial_len] = '\0';
+
+		  tokens.count = 0;
+		  tokens.tokens = NULL;
+		  free(tokens.tokens);
+
+		  // split `,` data
+		  tokens = split((char *)UserTxBufferFS,"|");
+
+		  lcd_clear();
+
+		  char* serial_type = *(tokens.tokens+0);
+
+		  if ( strcmp(serial_type,display_type_1) == 0 )
+		  {
+			  char* title = *(tokens.tokens+1);
+			  char* artists = *(tokens.tokens+2);
+
+			  size_t title_size = strlen(title);
+			  size_t artists_size = strlen(artists);
+
+			  memset((uint8_t *)title_tmp,0,strlen(title_tmp));
+			  memset((uint8_t *)artists_tmp,0,strlen(artists_tmp));
+
+			  strncpy((char *)title_tmp,(const char *)title,title_size);
+			  strncpy((char *)artists_tmp,(const char *)artists,artists_size);
+
+			  strcat(title_tmp,"   ");
+			  strcat(artists_tmp,"   ");
+
+			  lcd_set_cursor(0, 0);
+			  lcd_write_string(title);
+			  if ( title_size <= LCD_MAX_LENGTH ) { lcd_title_scroll = 0; }
+			  else { lcd_title_scroll = 1; }
+
+			  lcd_set_cursor(1, 0);
+			  lcd_write_string(artists);
+
+			  if ( artists_size <= LCD_MAX_LENGTH ) { lcd_artists_scroll  = 0; }
+			  else { lcd_artists_scroll  = 1; }
+
+
+			  start_tick_title = HAL_GetTick();
+			  start_tick_artists = HAL_GetTick();
+		  }
+		  else if ( strcmp(serial_type,display_type_2) == 0)
+		  {
+			  char* duration_time = *(tokens.tokens+1);
+			  char* full_time = *(tokens.tokens+2);
+
+			  size_t du_size = strlen(duration_time);
+			  size_t fu_size = strlen(full_time);
+
+			  duration_time_tmp = atoi(duration_time) / 0.001;
+			  full_time_tmp = atoi(full_time) / 0.001;
+
+			  is_playing = 1;
+			  duration_tick = HAL_GetTick();
+		  }
+		  memset(UserRxBufferFS, 0, sizeof(UserRxBufferFS));
+		  memset(UserTxBufferFS, 0, sizeof(UserTxBufferFS));
+		  serial_len = 0;
+	  }
 
 	  if ( HAL_GetTick() - duration_tick >= COUNT_MS)
 	  {
 //		  is_playing == 1 &&
-//		  if ( duration_time_tmp >= full_time_tmp ) {
-//			  is_playing = 0;
-//		  }
-		  CDC_Transmit_FS((uint8_t *)duration_time_tmp, (uint16_t *)sizeof(duration_time_tmp));
+		  if ( duration_time_tmp >= full_time_tmp ) {
+			  duration_time_tmp = 0;
+		  }
+
 		  duration_time_tmp += 1;
-
-		  lcd_set_cursor(1, 0);
-		  itoa(duration_time_tmp,test,10);
-		  lcd_write_string(test);
-
 		  duration_tick = HAL_GetTick();
+
+		  if (display_mode == 2)
+		  {
+			  lcd_set_cursor(1, 0);
+			  int dt1 = duration_time_tmp / 60;
+			  itoa(dt1,test,10);
+			  lcd_write_string(test);
+
+			  lcd_set_cursor(1, 1);
+			  lcd_write_string(":");
+
+			  lcd_set_cursor(1,2);
+			  int dt2 = duration_time_tmp % 60;
+			  itoa(dt2,test,10);
+			  lcd_write_string(test);
+		  }
 	  }
 
-	  if ( btn_flag_4 == 1 ) // display mode 1
+	  if ( btn_flag_4 == 0 ) // display mode 1
 	  {
+		  display_mode = 1;
 		  if ( lcd_title_scroll == 1 && HAL_GetTick() - start_tick_title >= LCD_SCROLL_TIME)
 		  {
 			  int title_tmp_size = strlen(title_tmp);
@@ -367,21 +381,10 @@ int main(void)
 			  start_tick_artists = HAL_GetTick();
 		  }
 	  }
-
-//	  else // display mode 2
-//	  {
-//		  if ( is_playing == 1 )
-//		  {
-//			  int dt1 = duration_time_tmp / 60;
-//			  int dt2 = duration_time_tmp % 60;
-//			  lcd_set_cursor(0, 0);
-//			  lcd_write_string((char *)dt1);
-//			  lcd_set_cursor(0, 1);
-//			  lcd_write_string(":");
-//			  lcd_set_cursor(0, 2);
-//			  lcd_write_string((char *)dt2);
-//		  }
-//	  }
+	  else // display 2 mode
+	  {
+		  display_mode = 2;
+	  }
 
 	  if ( btn_flag_1 == 1 )
 	  {
