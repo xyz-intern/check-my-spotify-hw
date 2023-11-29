@@ -61,6 +61,7 @@ class Serial_controller:
     def send_to_stm(self,data):
         send_data = str(data)
         send_data_bytes = send_data.encode('utf-8')
+
         self.ser.write(send_data_bytes)
         print(f'send to stm32 : {send_data_bytes}')
 
@@ -86,7 +87,7 @@ class Timer_Manager:
     def set_interval(self,how_long):
         
         redirection_time = int(how_long) / 1000.0
-        print(f'redirection time : {redirection_time}')
+        print(f'set_interval function redirection time : {redirection_time}')
         user_id = read_file_data('user')
         
         self.t = threading.Timer(redirection_time,self.timer_get_track_info,args=(user_id,))
@@ -100,7 +101,7 @@ my_serial = Serial_controller(baudrate=115200,port="/dev/serial/by-id/usb-STMicr
 timer_manager = Timer_Manager()
 
 class My_socket:
-    def __init__(self,IP='192.168.0.105',PORT=8765,SIZE=1024):
+    def __init__(self,IP='192.168.0.105',PORT=8765,SIZE=8192):
         ADDR = (IP,PORT)
         self.msg_size = SIZE
         self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -120,11 +121,16 @@ class My_socket:
 
             msg = msg.decode('utf-8')
             
-            if msg.isdigit(): # is number ?
+            msgs = msg.split('|')
+
+            if len(msgs) > 1:
                 write_type = 'duration'
                 write_data_in_file(txt=msg,write_type=write_type)
                 duration_time = read_file_data(write_type=write_type)
-                timer_manager.set_interval(duration_time)
+                times = duration_time.split('|')
+                timer_manager.set_interval(times[0])
+                my_serial.send_to_stm(f'duration|{int(times[1])-int(times[0])}|{times[1]}')
+                print(f'duration|{int(times[1])-int(times[0])}|{times[1]}')
             else :
                 write_type = 'user'
                 write_data_in_file(txt=msg,write_type=write_type)
@@ -158,27 +164,26 @@ def english_to_korean(papago_quote):
 
 def settup_lcd_data(data):
     do_trans  = False
-    trans_frist = False
+    tmp_list = []
     result_str = ''
 
     # data split
     response_list = data.split('|')
 
     for rl in response_list:
+        do_trans = False
         for ch in rl:
-            if '가' <= ch <= '힣':  # 한글의 유니코드 범위
-                do_trans = True        
-        print(rl)
-        if do_trans and trans_frist == False:
-            result_str += english_to_korean(rl) +'|'
-            trans_frist = True
-        elif do_trans and trans_frist:
-            result_str += english_to_korean(rl)
-        elif do_trans == False and trans_frist == False:
-            result_str += rl + '|'
-        else:
-            result_str += rl
-    print(result_str)
+            if '가' <= ch <= '힣':
+                tmp_list.append(english_to_korean(rl))
+                do_trans = True
+                break
+        
+        if do_trans == False:
+            tmp_list.append(rl)
+    
+    if len(tmp_list) == 2:
+        result_str = f'{tmp_list[0]}|{tmp_list[1]}'
+        
     return result_str
 
 def send_to_nest(command,user_id):
@@ -198,7 +203,11 @@ def send_to_nest(command,user_id):
             data = {'volume': True , 'userId': user_id}
 
         response = requests.post(url_items, json=data,verify=False)
-        return response.text+'|test'
+        if ( len(response.text) == 0 ) :
+            results_str = 'response.text|error'
+            return results_str
+        else:
+            return response.text+'|volumes'
     
     else:
 
@@ -221,7 +230,8 @@ def send_to_nest(command,user_id):
         
         elif command == 'prev' or command == 'next':
             timer_manager.cancle_timer()
-            timer_manager.set_interval(int(read_file_data('duration')))
+            rfd_list = read_file_data('duration').split('|')
+            timer_manager.set_interval(int(rfd_list[0]))
             time.sleep(2.5)
             data2 = timer_manager.timer_get_track_info(user_id=user_id)
             stm_data= settup_lcd_data(data2)
@@ -280,11 +290,13 @@ def serial_to_stm32():
             command = None
 
         if command is not None:
-
+            print(f'command : {command}, user_id : {user_id}')
             response_data = send_to_nest(command, user_id)
-            my_serial.send_to_stm(response_data)
-            print(f'serial btn response data : {response_data}')
-            
+            if response_data == None:
+                pass
+            else :
+                my_serial.send_to_stm(f'song|{response_data}')
+
             # init
             command = None
             command_sent = False
@@ -299,5 +311,5 @@ thread_serial.start()
 
 while True:
     exit_signal = input('Type "e" anytime to stop server\n')
-    if exit_signal == 'e':
+    if exit_signal == 'e' or 'exit' or 'EXIT':
         break
