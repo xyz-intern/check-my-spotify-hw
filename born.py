@@ -65,6 +65,8 @@ class Serial_controller:
         self.ser.write(send_data_bytes)
         print(f'send to stm32 : {send_data_bytes}')
 
+my_serial = Serial_controller(baudrate=115200,port="/dev/serial/by-id/usb-STMicroelectronics_STM32_Virtual_ComPort_8D71326E5652-if00")
+
 class Timer_Manager:
     def __init__(self):
         self.t = None
@@ -81,8 +83,15 @@ class Timer_Manager:
         # timer_serial.send_to_stm(response.text)
 
         write_data_in_file(txt=response.text,write_type='listening')
+        print(response.text)
         return response.text
         # stm32 로 보내야함
+
+    def set_interval_get_info(self,user_id):
+        print('set interval get info excute!!!')
+        data = self.timer_get_track_info(user_id=user_id)
+        stm_data = settup_lcd_data(data)
+        my_serial.send_to_stm(f'song|{stm_data}')
 
     def set_interval(self,how_long):
         
@@ -90,14 +99,14 @@ class Timer_Manager:
         print(f'set_interval function redirection time : {redirection_time}')
         user_id = read_file_data('user')
         
-        self.t = threading.Timer(redirection_time,self.timer_get_track_info,args=(user_id,))
+        self.t = threading.Timer(redirection_time,self.set_interval_get_info,args=(user_id,))
         self.t.start()
     
     def cancle_timer(self):
         if self.t is not None: # timer is alive ?
             self.t.cancel() # timer cancle
 
-my_serial = Serial_controller(baudrate=115200,port="/dev/serial/by-id/usb-STMicroelectronics_STM32_Virtual_ComPort_8D71326E5652-if00")
+# my_serial = Serial_controller(baudrate=115200,port="/dev/serial/by-id/usb-STMicroelectronics_STM32_Virtual_ComPort_8D71326E5652-if00")
 timer_manager = Timer_Manager()
 
 class My_socket:
@@ -128,7 +137,8 @@ class My_socket:
                 write_data_in_file(txt=msg,write_type=write_type)
                 duration_time = read_file_data(write_type=write_type)
                 times = duration_time.split('|')
-                timer_manager.set_interval(times[0])
+                interval_time = (int(times[1]) - (int(times[1])-int(times[0])))
+                timer_manager.set_interval(interval_time)
                 my_serial.send_to_stm(f'duration|{int(times[1])-int(times[0])}|{times[1]}')
                 print(f'duration|{int(times[1])-int(times[0])}|{times[1]}')
             else :
@@ -156,13 +166,15 @@ def english_to_korean(papago_quote):
         print(response_body.decode('utf-8'))
         data = json.loads(response_body)
         translated_text = data['message']['result']['translatedText']
-
+        
     else:
         print("Error Code:" + rescode)
 
     return str(translated_text)
 
 def settup_lcd_data(data):
+    if (len(data) == 0 ):
+        return 'no data'
     do_trans  = False
     tmp_list = []
     result_str = ''
@@ -221,7 +233,11 @@ def send_to_nest(command,user_id):
         # send
         response = requests.post(url_items, json=data,timeout=20,verify=False)
 
-        if command == 'play':
+        if (len(response.text) == 0):
+            print(response.text)
+            print('response text len 0')
+            return 'error|response text no data'
+        elif command == 'play':
             return settup_lcd_data(response.text)
 
         elif command == 'stop':
@@ -292,11 +308,13 @@ def serial_to_stm32():
         if command is not None:
             print(f'command : {command}, user_id : {user_id}')
             response_data = send_to_nest(command, user_id)
-            if response_data == None:
+            # print(f'response data : {response_data}s')
+            # print(type(response_data))
+            # print(len(response_data))
+            if response_data == None or len(response_data) == 0:
                 pass
             else :
                 my_serial.send_to_stm(f'song|{response_data}')
-
             # init
             command = None
             command_sent = False
