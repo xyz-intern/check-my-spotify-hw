@@ -77,7 +77,7 @@ class Timer_Manager:
         headers = {
             "User-Agent" : "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/119.0"
         }
-        response = requests.get(url_items,headers=headers,timeout=5,verify=False)
+        response = requests.get(url_items,headers=headers,timeout=30,verify=False)
 
         # timer_serial = Serial_controller(baudrate=115200,port="/dev/serial/by-id/usb-STMicroelectronics_STM32_Virtual_ComPort_8D71326E5652-if00")
         # timer_serial.send_to_stm(response.text)
@@ -91,6 +91,7 @@ class Timer_Manager:
         print('set interval get info excute!!!')
         data = self.timer_get_track_info(user_id=user_id)
         stm_data = settup_lcd_data(data)
+        time.sleep(1.5)
         my_serial.send_to_stm(f'song|{stm_data}')
 
     def set_interval(self,how_long):
@@ -137,7 +138,7 @@ class My_socket:
                 write_data_in_file(txt=msg,write_type=write_type)
                 duration_time = read_file_data(write_type=write_type)
                 times = duration_time.split('|')
-                interval_time = (int(times[1]) - (int(times[1])-int(times[0])))
+                interval_time = (int(times[0]))
                 timer_manager.set_interval(interval_time)
                 my_serial.send_to_stm(f'duration|{int(times[1])-int(times[0])}|{times[1]}')
                 print(f'duration|{int(times[1])-int(times[0])}|{times[1]}')
@@ -174,7 +175,7 @@ def english_to_korean(papago_quote):
 
 def settup_lcd_data(data):
     if (len(data) == 0 ):
-        return 'no data'
+        return 'no data|please replay'
     do_trans  = False
     tmp_list = []
     result_str = ''
@@ -219,7 +220,7 @@ def send_to_nest(command,user_id):
             results_str = 'response.text|error'
             return results_str
         else:
-            return response.text+'|volumes'
+            return response.text
     
     else:
 
@@ -231,7 +232,7 @@ def send_to_nest(command,user_id):
         data = {'command': command, 'userId': user_id}
         
         # send
-        response = requests.post(url_items, json=data,timeout=20,verify=False)
+        response = requests.post(url_items, json=data,timeout=30,verify=False)
 
         if (len(response.text) == 0):
             print(response.text)
@@ -242,7 +243,7 @@ def send_to_nest(command,user_id):
 
         elif command == 'stop':
             timer_manager.cancle_timer()
-            return 'Music is|Stop!!!'
+            return 'Music is|Stop!,timer'
         
         elif command == 'prev' or command == 'next':
             timer_manager.cancle_timer()
@@ -308,13 +309,16 @@ def serial_to_stm32():
         if command is not None:
             print(f'command : {command}, user_id : {user_id}')
             response_data = send_to_nest(command, user_id)
-            # print(f'response data : {response_data}s')
-            # print(type(response_data))
-            # print(len(response_data))
             if response_data == None or len(response_data) == 0:
                 pass
             else :
-                my_serial.send_to_stm(f'song|{response_data}')
+                if command == 'play' or command == 'next' or command == 'prev':
+                    time.sleep(1.5)
+                    my_serial.send_to_stm(f'song|{response_data}')
+                elif command == 'stop':
+                    print(f'stop|Music is stop command')
+                else:
+                    my_serial.send_to_stm(f'volume|{response_data}')
             # init
             command = None
             command_sent = False
