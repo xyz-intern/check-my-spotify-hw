@@ -85,10 +85,11 @@ volatile uint8_t lcd_title_scroll=0;
 volatile uint8_t lcd_title_print=0;
 volatile uint8_t lcd_artists_scroll=0;
 volatile uint8_t lcd_artists_print=0;
+volatile uint8_t song_info_print=0;
 
 char title_tmp[MAX_LENGTH] = {};
 char artists_tmp[MAX_LENGTH] = {};
-
+char volume_tmp[MAX_LENGTH] = {};
 // song duration tmp
 uint32_t duration_time_tmp =0;
 uint32_t full_time_tmp=0;
@@ -136,8 +137,13 @@ uint32_t fu_seconds = 0; // full time
 char* display_type_1 = "song";
 char* display_type_2 = "duration";
 char* display_type_3 = "volume";
+char* display_type_4 = "stop";
 uint32_t display_mode = 0;
-uint32_t duration_print = 0;
+
+GPIO_PinState music_play = 0;
+GPIO_PinState song_info_blick  = 0;
+GPIO_PinState duration_blick = 0;
+GPIO_PinState volume_tick= 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -157,8 +163,10 @@ void lcd_clear(void);
 void lcd_backlight(uint8_t state);
 
 LCDAT split(char* input, const char* delimiter);
+void lcd_song_info_printing(void);
 void lcd_duration_printing(void);
-
+void lcd_no_data_printing(void);
+void lcd_volume_printing(void);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -257,6 +265,7 @@ int main(void)
   uint32_t start_tick_title= HAL_GetTick();
   uint32_t start_tick_artists= HAL_GetTick();
 
+  uint32_t song_info_tick= 0;
   uint32_t duration_tick = 0;
 
   LCDAT tokens;
@@ -276,17 +285,25 @@ int main(void)
 
 	  if ( btn_flag_4 == 1 )
 	  {
-		  btn_flag_4 = 0;
-		  display_mode=!display_mode;
+		  display_mode++;
 		  if ( display_mode == 0 )
 		  {
-			  lcd_title_print=1;
-			  lcd_artists_print=1;
+			  song_info_print=1;
+		  }
+		  else if ( display_mode == 1 )
+		  {
+			  duration_blick =0;
+		  }
+		  else if ( display_mode == 2 )
+		  {
+			  // volume logic
 		  }
 		  else
 		  {
-			  duration_print =0;
+			  display_mode = 0;
 		  }
+
+		  btn_flag_4 = 0;
 	  }
 
 	  // Are you serial data ?
@@ -315,7 +332,8 @@ int main(void)
 		  {
 			  if ( (tokens.count) == 3 )
 			  {
-				  is_duration = 1;
+				  music_play = 1;
+
 				  char* title = *(tokens.tokens+1);
 				  char* artists = *(tokens.tokens+2);
 
@@ -331,29 +349,13 @@ int main(void)
 				  strcat(title_tmp,"   ");
 				  strcat(artists_tmp,"   ");
 
-				  // 1 screen
-				  if ( btn_flag_4 == 0 )
-				  {
-					  lcd_set_cursor(0, 0);
-					  lcd_write_string(title);
-
-					  lcd_set_cursor(1, 0);
-					  lcd_write_string(artists);
-				  }
-
-				  // check if scrolling is required
-				  if ( artists_size <= LCD_MAX_LENGTH )
-				  {
-					  lcd_artists_scroll = 0;
-				  }
-
-				  else
-				  {
-					  lcd_artists_scroll = 1;
-				  }
-
 				  if ( title_size <= LCD_MAX_LENGTH )
 				  {
+					  if ( display_mode == 0 )
+					  {
+						  lcd_set_cursor(0, 0);
+						  lcd_write_string(title);
+					  }
 					  lcd_title_scroll = 0;
 				  }
 				  else
@@ -361,59 +363,73 @@ int main(void)
 					  lcd_title_scroll = 1;
 				  }
 
+				  // check if scrolling is required
+				  if ( artists_size <= LCD_MAX_LENGTH )
+				  {
+					  if ( display_mode == 1 )
+					  {
+						  lcd_set_cursor(1, 0);
+						  lcd_write_string(artists);
+					  }
+					  lcd_artists_scroll = 0;
+				  }
+				  else
+				  {
+					  lcd_artists_scroll = 1;
+				  }
+
 				  start_tick_title = HAL_GetTick();
 				  start_tick_artists = HAL_GetTick();
 			  }
+			  // when serial data len > 3
 			  else
 			  {
 				  lcd_set_cursor(0, 0);
-				  lcd_write_string("no playing");
-
-				  lcd_set_cursor(1, 0);
-				  lcd_write_string("no data");
+				  lcd_write_string("I missing data");
 			  }
 		  }
 
 		  // when receive song duration through serial
 		  else if ( strcmp(serial_type,display_type_2) == 0)
 		  {
-			  char* duration_time = *(tokens.tokens+1);
-			  char* full_time = *(tokens.tokens+2);
-
-			  duration_time_tmp = atoi(duration_time) / 1000;
-			  full_time_tmp = atoi(full_time) / 1000;
-
-			  if ( btn_flag_4 == 1 )
+			  if ( (tokens.count) == 3 )
 			  {
-				  lcd_set_cursor(1, 0);
-				  du_minutes = duration_time_tmp / 60;
-				  du_seconds = duration_time_tmp % 60;
+				  music_play = 1;
 
-				  char min_str[3];
-				  char sec_str[3];
-				  char time_str[6];
+				  char* duration_time = *(tokens.tokens+1);
+				  char* full_time = *(tokens.tokens+2);
 
-				  itoa(du_minutes, min_str, 10);
-				  itoa(du_seconds, sec_str, 10);
+				  duration_time_tmp = atoi(duration_time) / 1000;
+				  full_time_tmp = atoi(full_time) / 1000;
 
-				  strcpy(time_str, min_str);
-				  strcat(time_str, ":");
-				  strcat(time_str, sec_str);
+				  if ( display_mode == 1 )
+				  {
+					  lcd_duration_printing();
+				  }
 
-				  lcd_write_string(time_str);
+				  duration_tick = HAL_GetTick();
 			  }
-
-			  is_duration = 1;
-			  duration_tick = HAL_GetTick();
 		  }
 		  else if (strcmp(serial_type,display_type_3) == 0)
 		  {
-			  display_mode = 3;
-			  lcd_clear();
-			  lcd_set_cursor(0, 0);
-			  lcd_write_string(*(tokens.tokens+1));
-			  lcd_set_cursor(1,0);
-			  lcd_write_string(*(tokens.tokens+2));
+			  if ( (tokens.count) == 2 )
+			  {
+				  // volume 저장
+				  char* volume = *(tokens.tokens+1);
+				  size_t volume_size = strlen(volume);
+				  memset((uint8_t *)volume_tmp,0,strlen(volume_tmp));
+				  strncpy((char *)volume_tmp,(const char *)volume,volume_size);
+				  // if display_mode == 3
+				  if ( display_mode == 2 )
+				  {
+					  lcd_volume_printing();
+				  }
+				  // volume 출력 lcd에
+			  }
+		  }
+		  else if (strcmp(serial_type,display_type_4) == 0)
+		  {
+			  music_play=0;
 		  }
 		  // Essential memory init
 		  memset(UserRxBufferFS, 0, sizeof(UserRxBufferFS));
@@ -423,38 +439,33 @@ int main(void)
 
 	  if ( btn_flag_1 == 1 )
 	  {
-		  // btn flag 0
-		  lcd_clear();
-		  lcd_set_cursor(0, 6);
 		  btn_flag_1 = 0;
-
 		  // excute logic
 		  if ( sw_state_stop_play )
 		  {   // play
 			  CDC_Transmit_FS(data[0],1);
-			  is_duration = 1;
+			  music_play = 1;
 		  }
 		  else
 		  {   // stop
 			  CDC_Transmit_FS(data[1],1);
-			  is_duration = 0;
+			  music_play = 0;
 			  lcd_title_scroll=0;
 			  lcd_artists_scroll=0;
 		  }
-
 		  sw_state_stop_play = !sw_state_stop_play; // 버튼 상태를 변경합니다.
 	  }
 
 	  if ( np_is_double_click == 0 && btn_flag_2 == 1)
 	  {
-		  is_duration=0;
+		  music_play=0;
 		  btn_flag_2 = 0;
 		  CDC_Transmit_FS(data[2], 1); // 010 next
 	  }
 
 	  if ( np_is_double_click == 1 && btn_flag_2 == 0 )
 	  {
-		  is_duration=0;
+		  music_play=0;
 		  np_is_double_click=0;
 		  CDC_Transmit_FS(data[3], 1); // 011 prev
 	  }
@@ -473,7 +484,7 @@ int main(void)
 
 	  if ( display_mode == 0 )
 	  {   // screen 1
-		  if ( is_duration == 1 )
+		  if ( music_play == 1 )
 		  {
 			  // title scrolling
 			  if ( HAL_GetTick() - start_tick_title >= LCD_SCROLL_TIME)
@@ -506,17 +517,28 @@ int main(void)
 				  lcd_write_string(artists_tmp);
 				  start_tick_artists = HAL_GetTick();
 			  }
-			  if (lcd_title_print == 1)
+
+			  if ( song_info_print==1 )
 			  {
-				  lcd_set_cursor(0, 0);
-				  lcd_write_string(title_tmp);
-				  lcd_title_print=0;
+				  song_info_print = 0;
+				  lcd_song_info_printing();
 			  }
-			  if (lcd_artists_print == 1)
+		  }
+		  else
+		  {// if music is stop
+			  song_info_tick = HAL_GetTick();
+			  if ( HAL_GetTick() - song_info_tick >= COUNT_MS )
 			  {
-				  lcd_set_cursor(1, 0);
-				  lcd_write_string(artists_tmp);
-				  lcd_artists_print=0;
+				  if ( song_info_blick == 0 )
+				  {
+					  lcd_clear();
+				  }
+				  else
+				  {
+					  lcd_song_info_printing();
+				  }
+				  song_info_blick = !song_info_blick;
+				  song_info_tick= HAL_GetTick();
 			  }
 		  }
 	  }
@@ -524,37 +546,53 @@ int main(void)
 	  // screen 2
 	  if ( HAL_GetTick() - duration_tick >= COUNT_MS ) // 1초 지났을 때
 	  {
-		  if ( duration_time_tmp >= full_time_tmp && is_duration == 1)
+		  if ( duration_time_tmp >= full_time_tmp && music_play == 1)
 		  {
-			  is_duration = 0;
-			  duration_print = 0;
+			  music_play = 0;
+			  duration_blick = 0;
 		  }
 
 		  if ( display_mode == 1 )
 		  {
-			  if ( is_duration == 1 )
+			  if ( music_play == 1 )
 			  {
 				  lcd_duration_printing();
 			  }
 			  else
-			  {
-				  if ( duration_print == 0 )
+			  { // no play
+				  if ( duration_blick == 0 )
+				  {
+					  lcd_no_data_printing();
+				  }
+				  else
 				  {
 					  lcd_clear();
-					  lcd_set_cursor(0, 0);
-					  lcd_write_string("Music is not");
-					  lcd_set_cursor(1, 0);
-					  lcd_write_string("currently play.");
-					  duration_print = 1;
 				  }
+				  duration_blick = !duration_blick;
 			  }
 		  }
 
-		  if ( is_duration == 1 )
+		  // music time counter because need keep going
+		  if ( music_play == 1 )
 		  {
 			  duration_time_tmp += 1;
 		  }
+
+		  // Run 1 sec so duration tick setting
 		  duration_tick = HAL_GetTick();
+	  }
+
+	  if ( display_mode == 2 )
+	  {
+		  if ( HAL_GetTick() - volume_tick >= COUNT_MS )
+		  {
+			  lcd_volume_printing();
+		  }
+		  else
+		  {
+			  lcd_clear();
+		  }
+		  volume_tick=HAL_GetTick();
 	  }
 
     /* USER CODE END WHILE */
@@ -878,6 +916,30 @@ void lcd_duration_printing(void)
 	  strcat(time_str, sec_str);
 
 	  lcd_write_string(time_str);
+}
+
+void lcd_volume_printing(void)
+{
+	lcd_set_cursor(0, 0);
+	lcd_write_string("The current");
+	lcd_set_cursor(1,0);
+	lcd_write_string("volume is ");
+	lcd_set_cursor(1, 11);
+	lcd_write_string(volume_tmp);
+}
+
+void lcd_song_info_printing(void)
+{
+	lcd_set_cursor(0, 0); lcd_write_string(title_tmp);
+	lcd_set_cursor(1, 0); lcd_write_string(artists_tmp);
+}
+
+void lcd_no_data_printing(void)
+{
+	lcd_set_cursor(0, 0);
+	lcd_write_string("Music is not");
+	lcd_set_cursor(1, 0);
+	lcd_write_string("currently play.");
 }
 /* USER CODE END 4 */
 
