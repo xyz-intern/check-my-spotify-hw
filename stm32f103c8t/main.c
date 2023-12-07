@@ -109,6 +109,9 @@ GPIO_PinState btn_flag_2 = 0;
 GPIO_PinState btn_flag_3 = 0;
 GPIO_PinState btn_flag_4 = 0;
 
+GPIO_PinState SER_RCV_STFG = 0;
+GPIO_PinState SER_RCV_SPFG = 0;
+
 // next & prev double click ticks
 uint32_t np_old_tick     = 0;
 uint32_t np_current_tick = 0;
@@ -310,24 +313,21 @@ int main(void)
 	  }
 
 	  // Are you serial data ?
-	  serial_len = strlen((const char*)UserRxBufferFS);
-//	  serial_len = strlen((const char*)UserRxBuffer);
+//	  serial_len = strlen((const char*)UserRxBufferFS);
+	  serial_len = strlen((const char*)UserRxBuffer);
 
 	  // if serial data is here
 	  if ( serial_len > 0) // buffer overflow
 	  {
 		  // RxBuffer -> TxBuffer
-		  strncpy((char *)UserTxBufferFS, (const char*)UserRxBufferFS,serial_len);
-//		  strncpy((char *)UserTxBufferFS, (const char*)UserRxBuffer,serial_len);
-//		  CDC_Transmit_FS(UserRxBufferFS, serial_len);
+//		  strncpy((char *)UserTxBufferFS, (const char*)UserRxBufferFS,serial_len);
+		  strncpy((char *)UserTxBufferFS, (const char*)UserRxBuffer,serial_len);
+		  CDC_Transmit_FS(UserRxBuffer, serial_len);
 		  UserTxBufferFS[serial_len] = '\0';
-
-
 
 		  tokens.count = 0;
 		  tokens.tokens = NULL;
 		  free(tokens.tokens);
-//		  if ( serial_start_flag && serial_stop_flag )
 		  // split`,` data
 		  tokens = split((char *)UserTxBufferFS,"|");
 		  lcd_clear();
@@ -348,7 +348,6 @@ int main(void)
 				  size_t volume_size = strlen(volume);
 				  memset((uint8_t *)volume_tmp,0,strlen(volume_tmp));
 				  strncpy((char *)volume_tmp,(const char *)volume,volume_size);
-
 
 				  size_t title_size = strlen(title);
 				  size_t artists_size = strlen(artists);
@@ -376,7 +375,6 @@ int main(void)
 					  lcd_title_scroll = 1;
 					  scroll_flag=1;
 				  }
-
 				  // check if scrolling is required
 				  if ( artists_size <= LCD_MAX_LENGTH )
 				  {
@@ -451,8 +449,7 @@ int main(void)
 			  strncpy((char *)volume_tmp,(const char *)volume,volume_size);
 		  }
 		  // Essential memory init
-		  memset(UserRxBufferFS, 0, sizeof(UserRxBufferFS));
-//		  memset(UserRxBuffer, 0, sizeof(UserRxBuffer));
+		  memset(UserRxBuffer, 0, sizeof(UserRxBuffer));
 		  memset(UserTxBufferFS, 0, sizeof(UserTxBufferFS));
 		  serial_len = 0;
 	  }
