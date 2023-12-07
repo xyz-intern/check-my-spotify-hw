@@ -63,8 +63,9 @@ class Serial_controller:
         send_data_bytes = send_data.encode('utf-8')
 
         self.ser.write(send_data_bytes)
+        print()
         print(f'send to stm32 : {send_data_bytes}')
-
+        print()
 my_serial = Serial_controller(baudrate=115200,port="/dev/serial/by-id/usb-STMicroelectronics_STM32_Virtual_ComPort_8D71326E5652-if00")
 
 class Timer_Manager:
@@ -72,32 +73,41 @@ class Timer_Manager:
         self.t = None
     
     def timer_get_track_info(self,user_id):
-
+        time.sleep(1.5)
         url_items = f'http://192.168.0.133:3000/apis/getTrack/{user_id}'
         headers = {
             "User-Agent" : "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/119.0"
         }
-        response = requests.get(url_items,headers=headers,timeout=30,verify=False)
+        try:
+            response = requests.get(url_items,headers=headers,timeout=30,verify=False)
+        except:
+            print('85 line: response error')
 
         # timer_serial = Serial_controller(baudrate=115200,port="/dev/serial/by-id/usb-STMicroelectronics_STM32_Virtual_ComPort_8D71326E5652-if00")
         # timer_serial.send_to_stm(response.text)
 
         write_data_in_file(txt=response.text,write_type='listening')
-        print(response.text)
+        
         return response.text
         # stm32 로 보내야함
 
     def set_interval_get_info(self,user_id):
+        print()
         print('set interval get info excute!!!')
         data = self.timer_get_track_info(user_id=user_id)
         stm_data = settup_lcd_data(data)
         time.sleep(1.5)
         my_serial.send_to_stm(f'song|{stm_data}')
+        print()
 
     def set_interval(self,how_long):
-        
+        if self.t is not None:
+            self.t.cancel()
+
         redirection_time = int(how_long) / 1000.0
+        print()
         print(f'set_interval function redirection time : {redirection_time}')
+        print()
         user_id = read_file_data('user')
         
         self.t = threading.Timer(redirection_time,self.set_interval_get_info,args=(user_id,))
@@ -106,6 +116,7 @@ class Timer_Manager:
     def cancle_timer(self):
         if self.t is not None: # timer is alive ?
             self.t.cancel() # timer cancle
+        # self.t.cancel()
 
 # my_serial = Serial_controller(baudrate=115200,port="/dev/serial/by-id/usb-STMicroelectronics_STM32_Virtual_ComPort_8D71326E5652-if00")
 timer_manager = Timer_Manager()
@@ -141,7 +152,6 @@ class My_socket:
                 interval_time = (int(times[0]))
                 timer_manager.set_interval(interval_time)
                 my_serial.send_to_stm(f'duration|{int(times[1])-int(times[0])}|{times[1]}')
-                print(f'duration|{int(times[1])-int(times[0])}|{times[1]}')
             else :
                 write_type = 'user'
                 write_data_in_file(txt=msg,write_type=write_type)
@@ -157,25 +167,31 @@ def english_to_korean(papago_quote):
     encText = urllib.parse.quote(papago_quote)
     data = "source=ko&target=en&text=" + encText
     url = "https://openapi.naver.com/v1/papago/n2mt"
-    request = urllib.request.Request(url)
-    request.add_header("X-Naver-Client-Id",client_id)
-    request.add_header("X-Naver-Client-Secret",client_secret)
-    response = urllib.request.urlopen(request, data=data.encode("utf-8"))
-    rescode = response.getcode()
-    if(rescode==200):
-        response_body = response.read()
-        print(response_body.decode('utf-8'))
-        data = json.loads(response_body)
-        translated_text = data['message']['result']['translatedText']
-        
-    else:
-        print("Error Code:" + rescode)
+    try:
+
+        request = urllib.request.Request(url)
+        request.add_header("X-Naver-Client-Id",client_id)
+        request.add_header("X-Naver-Client-Secret",client_secret)
+        response = urllib.request.urlopen(request, data=data.encode("utf-8"))
+        rescode = response.getcode()
+        if(rescode==200):
+            response_body = response.read()
+            print(response_body.decode('utf-8'))
+            data = json.loads(response_body)
+            translated_text = data['message']['result']['translatedText']
+            
+        else:
+            print("Error Code:" + rescode)
+    except:
+        print('enlish_to_korean() : papago error')
 
     return str(translated_text)
 
 def settup_lcd_data(data):
+
     if (len(data) == 0 ):
         return 'no data|please replay'
+    
     do_trans  = False
     tmp_list = []
     result_str = ''
@@ -194,8 +210,14 @@ def settup_lcd_data(data):
         if do_trans == False:
             tmp_list.append(rl)
     
+    for i in tmp_list:
+        print(f"tmp list : {i}")
+
     if len(tmp_list) == 2:
         result_str = f'{tmp_list[0]}|{tmp_list[1]}'
+    
+    elif len(tmp_list) == 3:
+        result_str = f'{tmp_list[0]}|{tmp_list[1]}|{tmp_list[2]}'
         
     return result_str
 
@@ -214,14 +236,18 @@ def send_to_nest(command,user_id):
         
         else :
             data = {'volume': True , 'userId': user_id}
-
-        response = requests.post(url_items, json=data,verify=False)
-        if ( len(response.text) == 0 ) :
-            results_str = 'response.text|error'
-            return results_str
-        else:
-            return response.text
-    
+        
+        try :
+            response = requests.post(url_items, json=data,verify=False)
+        
+            if ( len(response.text) == 0 or response is None ) :
+                results_str = 'response.text|error'
+                return results_str
+            else:
+                return response.text
+        except:
+            print('send_to_nest, response error')
+            
     else:
 
         # requests variables
@@ -231,28 +257,41 @@ def send_to_nest(command,user_id):
         # data
         data = {'command': command, 'userId': user_id}
         
-        # send
-        response = requests.post(url_items, json=data,timeout=30,verify=False)
+        try:
+            # send
+            response = requests.post(url_items, json=data,timeout=30,verify=False)
+            
+            print("=======================")
+            print(f'response done : {response.text}')
+            result = response.text.split('|')
+            print("=======================")
 
-        if (len(response.text) == 0):
-            print(response.text)
-            print('response text len 0')
-            return 'error|response text no data'
-        elif command == 'play':
-            return settup_lcd_data(response.text)
+            if ( len(result) <= 1 ) :
+                print(result)
+                return 'error'
+            
+            else:
+                if (len(response.text) == 0):
+                    print('response text len 0')
+                    return 'error|response text no data'
+                elif command == 'play':
+                    return settup_lcd_data(response.text)
 
-        elif command == 'stop':
-            timer_manager.cancle_timer()
-            return 'Music is|Stop!,timer'
-        
-        elif command == 'prev' or command == 'next':
-            timer_manager.cancle_timer()
-            rfd_list = read_file_data('duration').split('|')
-            timer_manager.set_interval(int(rfd_list[0]))
-            time.sleep(2.5)
-            data2 = timer_manager.timer_get_track_info(user_id=user_id)
-            stm_data= settup_lcd_data(data2)
-            return stm_data
+                elif command == 'stop':
+                    timer_manager.cancle_timer()
+                    return f'{response.text}'
+                
+                elif command == 'prev' or command == 'next':
+                    timer_manager.cancle_timer()
+                    rfd_list = read_file_data('duration').split('|')
+                    timer_manager.set_interval(int(rfd_list[0]))
+                    time.sleep(2.5)
+                    data2 = timer_manager.timer_get_track_info(user_id=user_id)
+                    stm_data= settup_lcd_data(data2)
+                    return stm_data
+        except:
+            print('send_to_nest, response error')
+
 
 def socket_process():
     my_socket = My_socket(IP='192.168.0.105',PORT=8765,SIZE=1024)
@@ -271,65 +310,78 @@ def serial_to_stm32():
         # get user_id
         user_id = read_file_data(write_type='user')
 
-        # play command
-        if rcv_serial_data == 0 and not command_sent:
-            command = 'play'
-            command_sent = True  # 요청을 보냄
-        
-        # stop command
-        elif rcv_serial_data == 1 and not command_sent:
-            command = 'stop'
-            timer_manager.cancle_timer()
-            command_sent = True  # 요청을 보냄
-        
-        # next command
-        elif rcv_serial_data == 2 and not command_sent:
-            command = 'next'
-            command_sent = True  # 요청을 보냄
-            pass
-        
-        # prev command
-        elif rcv_serial_data == 3 and not command_sent:
-            command = 'prev'
-            command_sent = True  # 요청을 보냄
-        
-        # volume down command
-        elif rcv_serial_data == 4 and not command_sent:
-            command = '0'
-            command_sent = True  # 요청을 보냄
-        
-        # volume up command
-        elif rcv_serial_data == 5 and not command_sent:
-            command = '1'
-            command_sent = True  # 요청을 보냄
-
-        else:
-            command = None
-
-        if command is not None:
-            print(f'command : {command}, user_id : {user_id}')
-            response_data = send_to_nest(command, user_id)
-            if response_data == None or len(response_data) == 0:
+        if rcv_serial_data is not None:
+            # play command
+            if rcv_serial_data == 0 and not command_sent:
+                command = 'play'
+                command_sent = True  # 요청을 보냄
+            
+            # stop command
+            elif rcv_serial_data == 1 and not command_sent:
+                command = 'stop'
+                timer_manager.cancle_timer()
+                command_sent = True  # 요청을 보냄
+            
+            # next command
+            elif rcv_serial_data == 2 and not command_sent:
+                command = 'next'
+                command_sent = True  # 요청을 보냄
                 pass
-            else :
-                if command == 'play' or command == 'next' or command == 'prev':
+            
+            # prev command
+            elif rcv_serial_data == 3 and not command_sent:
+                command = 'prev'
+                command_sent = True  # 요청을 보냄
+            
+            # volume down command
+            elif rcv_serial_data == 4 and not command_sent:
+                command = '0'
+                command_sent = True  # 요청을 보냄
+            
+            # volume up command
+            elif rcv_serial_data == 5 and not command_sent:
+                command = '1'
+                command_sent = True  # 요청을 보냄
+
+            else:
+                command = None
+            
+            rcv_serial_data = None
+
+            print()
+            if command is not None:
+                print(f'command : {command}, user_id : {user_id}')
+                response_data = send_to_nest(command, user_id)
+
+                if response_data == None or len(response_data) == 0 or 'error':
+                    pass
+                else :
                     time.sleep(1.5)
-                    my_serial.send_to_stm(f'song|{response_data}')
-                elif command == 'stop':
-                    print(f'stop|Music is stop command')
-                else:
-                    my_serial.send_to_stm(f'volume|{response_data}')
-            # init
-            command = None
-            command_sent = False
+                    
+                    if command == 'play' or command == 'next' or command == 'prev':
+                        my_serial.send_to_stm(f'song|{response_data}')
+                    elif command == 'stop':
+                        my_serial.send_to_stm(f'stop|{response_data}')
+                    else:
+                        my_serial.send_to_stm(f'volume|{response_data}')
+                # init
+                command = None
+                command_sent = False
+            print()
+            
+try:
+    thread_socket = threading.Thread(target=socket_process,name="socket thread")
+    thread_socket.daemon = True
+    thread_socket.start()
+except:
+    print('socket is not connection')
 
-thread_socket = threading.Thread(target=socket_process,name="socket thread")
-thread_socket.daemon = True
-thread_socket.start()
-
-thread_serial = threading.Thread(target=serial_to_stm32,name="serial thread")
-thread_serial.daemon = True
-thread_serial.start()
+try:
+    thread_serial = threading.Thread(target=serial_to_stm32,name="serial thread")
+    thread_serial.daemon = True
+    thread_serial.start()
+except:
+    print('serial is not connection')
 
 while True:
     exit_signal = input('Type "e" anytime to stop server\n')
