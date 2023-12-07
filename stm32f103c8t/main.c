@@ -46,9 +46,9 @@
 #define D7_BIT 7 // Data 7 bit
 
 #define LCD_SCROLL_TIME 1500
-#define COUNT_MS 1000
+#define COUNT_MS 930
 #define LCD_MAX_LENGTH 16
-#define MAX_LENGTH  100
+#define MAX_LENGTH  300
 
 #define DOUBLE_CLICK__TIME 700
 /* USER CODE END PD */
@@ -85,6 +85,7 @@ volatile uint8_t lcd_title_scroll=0;
 volatile uint8_t lcd_title_print=0;
 volatile uint8_t lcd_artists_scroll=0;
 volatile uint8_t lcd_artists_print=0;
+volatile uint8_t scroll_flag =0;
 volatile uint8_t song_info_print=0;
 
 char title_tmp[MAX_LENGTH] = {};
@@ -132,6 +133,8 @@ uint32_t du_minutes = 0; // duration
 uint32_t du_seconds = 0; // duration
 uint32_t fu_minutes = 0; // full time
 uint32_t fu_seconds = 0; // full time
+
+//uint32_t LCD_SCROLL_TIME = 1500;
 
 // serial display types
 char* display_type_1 = "song";
@@ -265,7 +268,7 @@ int main(void)
   uint32_t start_tick_title= HAL_GetTick();
   uint32_t start_tick_artists= HAL_GetTick();
 
-  uint32_t song_info_tick= 0;
+  uint32_t song_info_tick= HAL_GetTick();
   uint32_t duration_tick = 0;
 
   LCDAT tokens;
@@ -308,19 +311,23 @@ int main(void)
 
 	  // Are you serial data ?
 	  serial_len = strlen((const char*)UserRxBufferFS);
+//	  serial_len = strlen((const char*)UserRxBuffer);
 
 	  // if serial data is here
-	  if ( serial_len > 0 && serial_len < 300 ) // buffer overflow
+	  if ( serial_len > 0) // buffer overflow
 	  {
 		  // RxBuffer -> TxBuffer
 		  strncpy((char *)UserTxBufferFS, (const char*)UserRxBufferFS,serial_len);
+//		  strncpy((char *)UserTxBufferFS, (const char*)UserRxBuffer,serial_len);
 //		  CDC_Transmit_FS(UserRxBufferFS, serial_len);
 		  UserTxBufferFS[serial_len] = '\0';
+
+
 
 		  tokens.count = 0;
 		  tokens.tokens = NULL;
 		  free(tokens.tokens);
-
+//		  if ( serial_start_flag && serial_stop_flag )
 		  // split`,` data
 		  tokens = split((char *)UserTxBufferFS,"|");
 		  lcd_clear();
@@ -330,12 +337,18 @@ int main(void)
 		  // when recive song info through serial
 		  if ( strcmp(serial_type,display_type_1) == 0 )
 		  {
-			  if ( (tokens.count) == 3 )
+			  if ( (tokens.count) == 4 )
 			  {
 				  music_play = 1;
 
 				  char* title = *(tokens.tokens+1);
 				  char* artists = *(tokens.tokens+2);
+
+				  char* volume = *(tokens.tokens+3);
+				  size_t volume_size = strlen(volume);
+				  memset((uint8_t *)volume_tmp,0,strlen(volume_tmp));
+				  strncpy((char *)volume_tmp,(const char *)volume,volume_size);
+
 
 				  size_t title_size = strlen(title);
 				  size_t artists_size = strlen(artists);
@@ -361,6 +374,7 @@ int main(void)
 				  else
 				  {
 					  lcd_title_scroll = 1;
+					  scroll_flag=1;
 				  }
 
 				  // check if scrolling is required
@@ -376,6 +390,7 @@ int main(void)
 				  else
 				  {
 					  lcd_artists_scroll = 1;
+					  scroll_flag=1;
 				  }
 
 				  start_tick_title = HAL_GetTick();
@@ -385,7 +400,7 @@ int main(void)
 			  else
 			  {
 				  lcd_set_cursor(0, 0);
-				  lcd_write_string("I missing data");
+				  lcd_write_string("Data Missing");
 			  }
 		  }
 
@@ -430,9 +445,14 @@ int main(void)
 		  else if (strcmp(serial_type,display_type_4) == 0)
 		  {
 			  music_play=0;
+			  char* volume = *(tokens.tokens+2);
+			  size_t volume_size = strlen(volume);
+			  memset((uint8_t *)volume_tmp,0,strlen(volume_tmp));
+			  strncpy((char *)volume_tmp,(const char *)volume,volume_size);
 		  }
 		  // Essential memory init
 		  memset(UserRxBufferFS, 0, sizeof(UserRxBufferFS));
+//		  memset(UserRxBuffer, 0, sizeof(UserRxBuffer));
 		  memset(UserTxBufferFS, 0, sizeof(UserTxBufferFS));
 		  serial_len = 0;
 	  }
@@ -525,8 +545,7 @@ int main(void)
 			  }
 		  }
 		  else
-		  {// if music is stop
-			  song_info_tick = HAL_GetTick();
+		  {
 			  if ( HAL_GetTick() - song_info_tick >= COUNT_MS )
 			  {
 				  if ( song_info_blick == 0 )
@@ -535,7 +554,14 @@ int main(void)
 				  }
 				  else
 				  {
-					  lcd_song_info_printing();
+					  if ( strlen(title_tmp) == 0 )
+					  {
+						  lcd_no_data_printing();
+					  }
+					  else
+					  {
+						  lcd_song_info_printing();
+					  }
 				  }
 				  song_info_blick = !song_info_blick;
 				  song_info_tick= HAL_GetTick();
