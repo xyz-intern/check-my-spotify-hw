@@ -62,8 +62,8 @@
   */
 
 /* USER CODE BEGIN PRIVATE_DEFINES */
-#define USB_START '9'
-#define USB_STOP '5'
+#define USB_START 1
+#define USB_STOP  0
 /* USER CODE END PRIVATE_DEFINES */
 
 /**
