@@ -28,6 +28,24 @@ extern char min_str[3];
 extern char sec_str[3];
 extern char time_str[17];
 
+typedef struct LCDAT {
+	char** tokens;
+	size_t count;
+} LCDAT;
+
+typedef struct LCD_SCROLL {
+	volatile uint8_t lcd_title_scroll;
+	volatile uint8_t lcd_artists_scroll;
+	volatile uint8_t scroll_flag;
+	volatile uint8_t song_info_print;
+	uint32_t display_mode;
+} LCD_SCROLL;
+
+typedef struct TIMES {
+	uint32_t duration_time_tmp;
+	uint32_t full_time_tmp;
+} TIMES;
+
 void lcd_write_nibble(uint8_t nibble, uint8_t rs);
 void lcd_send_cmd(uint8_t cmd);
 void lcd_send_data(uint8_t data);
