@@ -163,3 +163,4 @@ void lcd_no_data_printing(void) {
 	lcd_set_cursor(1, 0);
 	lcd_write_string("currently play.");
 }
+

@@ -99,7 +99,6 @@ char* display_type_1 = "song";
 char* display_type_2 = "duration";
 char* display_type_3 = "volume";
 char* display_type_4 = "stop";
-//uint32_t display_mode = 0;
 
 GPIO_PinState music_play = 0;
 GPIO_PinState song_info_blick  = 0;
@@ -233,6 +232,7 @@ int main(void)
   TIMES time_tmp;
   time_tmp.duration_time_tmp = 0;
   time_tmp.full_time_tmp = 0;
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -248,6 +248,7 @@ int main(void)
 	  if ( btn_flag_4 == 1 )
 	  {
 		  lcd_status.display_mode++;
+
 		  if ( lcd_status.display_mode == 0 )
 		  {
 			  lcd_status.song_info_print=1;
@@ -396,11 +397,7 @@ int main(void)
 			  {
 				  if ( lcd_status.lcd_title_scroll == 1 )
 				  {
-					  int title_tmp_size = strlen(music_tmp.ti_tmp);
-					  char ch_ti = 0;
-					  ch_ti = music_tmp.ti_tmp[0];
-					  strcpy(music_tmp.ti_tmp,music_tmp.ti_tmp+1);
-					  music_tmp.ti_tmp[title_tmp_size-1] = ch_ti;
+					  title_scrolling(&music_tmp);
 				  }
 				  lcd_set_cursor(0, 0);
 				  lcd_write_string(music_tmp.ti_tmp);
@@ -412,11 +409,7 @@ int main(void)
 			  {
 				  if ( lcd_status.lcd_artists_scroll == 1 )
 				  {
-					  int artists_tmp_size = strlen(music_tmp.ar_tmp);
-					  char ch_ar = 0;
-					  ch_ar = music_tmp.ar_tmp[0];
-					  strcpy(music_tmp.ar_tmp,music_tmp.ar_tmp+1);
-					  music_tmp.ar_tmp[artists_tmp_size-1] = ch_ar;
+					  artists_scrolling(&music_tmp);
 				  }
 				  lcd_set_cursor(1, 0);
 				  lcd_write_string(music_tmp.ar_tmp);
