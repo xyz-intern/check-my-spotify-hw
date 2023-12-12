@@ -39,6 +39,8 @@ typedef struct LCD_SCROLL {
 	volatile uint8_t scroll_flag;
 	volatile uint8_t song_info_print;
 	uint32_t display_mode;
+	uint32_t title_scroll_start_time;
+	uint32_t artists_scroll_start_time;
 } LCD_SCROLL;
 
 typedef struct TIMES {
@@ -58,5 +60,7 @@ void lcd_song_info_printing(char* title_tmp, char* artists_tmp);
 void lcd_duration_printing(uint32_t duration_tim_tmp,uint32_t full_time_tmp);
 void lcd_no_data_printing(void);
 void lcd_volume_printing(char* volume_tmp);
+void title_scrolling(char* ti_tmp);
+void artists_scrolling(char* ar_tmp);
 
 #endif /* INC_LCD_H_ */

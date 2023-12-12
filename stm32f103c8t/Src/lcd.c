@@ -164,3 +164,18 @@ void lcd_no_data_printing(void) {
 	lcd_write_string("currently play.");
 }
 
+void title_scrolling(char* ti_tmp) {
+	int title_tmp_size = strlen(ti_tmp);
+	char ch_ti = 0;
+	ch_ti = ti_tmp[0];
+	strcpy(ti_tmp,ti_tmp+1);
+	ti_tmp[title_tmp_size-1] = ch_ti;
+}
+
+void artists_scrolling(char* ar_tmp) {
+	int artists_tmp_size = strlen(ar_tmp);
+	char ch_ar = 0;
+	ch_ar = ar_tmp[0];
+	strcpy(ar_tmp,ar_tmp+1);
+	ar_tmp[artists_tmp_size-1] = ch_ar;
+}

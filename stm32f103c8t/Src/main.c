@@ -39,6 +39,7 @@
 #define COUNT_MS 965
 #define LCD_MAX_LENGTH 16
 #define DOUBLE_CLICK__TIME 700
+#define LCD_SCROLL_DELAY_TIME 1500
 
 /* USER CODE END PD */
 
@@ -228,6 +229,8 @@ int main(void)
   lcd_status.song_info_print = 0 ;
   lcd_status.scroll_flag = 0;
   lcd_status.display_mode = 0;
+  lcd_status.title_scroll_start_time = 0;
+  lcd_status.artists_scroll_start_time = 0;
 
   TIMES time_tmp;
   time_tmp.duration_time_tmp = 0;
@@ -296,8 +299,10 @@ int main(void)
 			  {
 				  music_play = 1;
 				  rcv_song_process(&tokens,&music_tmp,&lcd_status);
-				  start_tick_title = HAL_GetTick();
-				  start_tick_artists = HAL_GetTick();
+				  lcd_status.title_scroll_start_time  = HAL_GetTick() + LCD_SCROLL_DELAY_TIME;
+				  lcd_status.artists_scroll_start_time= HAL_GetTick() + LCD_SCROLL_DELAY_TIME;
+//				  start_tick_title   = HAL_GetTick();
+//				  start_tick_artists = HAL_GetTick();
 
 			  }
 			  // when serial data len > 3
@@ -395,9 +400,9 @@ int main(void)
 			  // title scrolling
 			  if ( HAL_GetTick() - start_tick_title >= LCD_SCROLL_TIME)
 			  {
-				  if ( lcd_status.lcd_title_scroll == 1 )
+				  if ( lcd_status.lcd_title_scroll == 1 && HAL_GetTick() >= lcd_status.title_scroll_start_time )
 				  {
-					  title_scrolling(&music_tmp);
+					  title_scrolling(music_tmp.ti_tmp);
 				  }
 				  lcd_set_cursor(0, 0);
 				  lcd_write_string(music_tmp.ti_tmp);
@@ -407,9 +412,9 @@ int main(void)
 			  // artists scrolling
 			  if ( HAL_GetTick() - start_tick_artists >= LCD_SCROLL_TIME)
 			  {
-				  if ( lcd_status.lcd_artists_scroll == 1 )
+				  if ( lcd_status.lcd_artists_scroll == 1 && HAL_GetTick() >= lcd_status.artists_scroll_start_time )
 				  {
-					  artists_scrolling(&music_tmp);
+					  artists_scrolling(music_tmp.ar_tmp);
 				  }
 				  lcd_set_cursor(1, 0);
 				  lcd_write_string(music_tmp.ar_tmp);

@@ -96,19 +96,3 @@ void volume_screen(LCDAT *tokens,MUSIC *musics,LCD_SCROLL *scroll)
 		  lcd_volume_printing(musics->vo_tmp);
 	  }
 }
-
-void title_scrolling(MUSIC *mt) {
-	int title_tmp_size = strlen(mt->ti_tmp);
-	char ch_ti = 0;
-	ch_ti = mt->ti_tmp[0];
-	strcpy(mt->ti_tmp,mt->ti_tmp+1);
-	mt->ti_tmp[title_tmp_size-1] = ch_ti;
-}
-
-void artists_scrolling(MUSIC *mt) {
-	int artists_tmp_size = strlen(mt->ar_tmp);
-	char ch_ar = 0;
-	ch_ar = mt->ar_tmp[0];
-	strcpy(mt->ar_tmp,mt->ar_tmp+1);
-	mt->ar_tmp[artists_tmp_size-1] = ch_ar;
-}

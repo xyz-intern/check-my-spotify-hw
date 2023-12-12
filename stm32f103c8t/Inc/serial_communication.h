@@ -20,12 +20,9 @@ typedef struct MUSIC {
 	char vo_tmp[MAX_LENGTH];
 } MUSIC;
 
-//void process_serial_data();
 void rcv_song_process(LCDAT *tokens ,MUSIC *musics , LCD_SCROLL *scroll);
 void rcv_time_process(LCDAT *tokens ,TIMES *time_tmp,LCD_SCROLL *scroll);
 void rcv_stop_process(LCDAT *tokens ,MUSIC *musics);
 void volume_screen(LCDAT *tokens,MUSIC *musics,LCD_SCROLL *scroll);
 
-void title_scrolling(MUSIC *mt);
-void artists_scrolling(MUSIC *mt);
 #endif /* INC_SERIAL_COMMUNICATION_H_ */
