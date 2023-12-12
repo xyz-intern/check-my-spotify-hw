@@ -56,7 +56,7 @@ I2C_HandleTypeDef hi2c1;
 // serial communication code
 extern uint8_t UserRxBufferFS[APP_RX_DATA_SIZE];
 extern uint8_t UserTxBufferFS[APP_TX_DATA_SIZE];
-
+extern GPIO_PinState message_complete;
 // ramps swtich btn
 volatile uint8_t sw_state_stop_play=1; // 1: start, 0: stop
 
@@ -276,7 +276,7 @@ int main(void)
 	  serial_len = strlen((const char*)UserRxBuffer);
 
 	  // if serial data is here
-	  if ( serial_len > 0) // buffer overflow
+	  if ( message_complete && serial_len > 0) // buffer overflow
 	  {
 		  // RxBuffer -> TxBuffer
 		  strncpy((char *)UserTxBufferFS, (const char*)UserRxBuffer,serial_len);
@@ -301,8 +301,6 @@ int main(void)
 				  rcv_song_process(&tokens,&music_tmp,&lcd_status);
 				  lcd_status.title_scroll_start_time  = HAL_GetTick() + LCD_SCROLL_DELAY_TIME;
 				  lcd_status.artists_scroll_start_time= HAL_GetTick() + LCD_SCROLL_DELAY_TIME;
-//				  start_tick_title   = HAL_GetTick();
-//				  start_tick_artists = HAL_GetTick();
 
 			  }
 			  // when serial data len > 3

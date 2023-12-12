@@ -98,6 +98,8 @@ uint8_t UserTxBufferFS[APP_TX_DATA_SIZE];
 /* USER CODE BEGIN PRIVATE_VARIABLES */
 uint8_t UserRxBuffer[APP_RX_DATA_SIZE];
 uint32_t UserRxBufPtrIn = 0;
+
+GPIO_PinState message_complete = 0;
 /* USER CODE END PRIVATE_VARIABLES */
 
 /**
@@ -270,10 +272,13 @@ static int8_t CDC_Receive_FS(uint8_t* Buf, uint32_t *Len)
 		{
 			receiving = 1;
 			UserRxBufPtrIn = 0;
+			message_complete = 0;
 		}
 		else if ( Buf[i] == USB_STOP )
 		{
 			receiving = 0;
+			UserRxBuffer[UserRxBufPtrIn]='\0';
+			message_complete = 1;
 		}
 		else if ( receiving )
 		{
