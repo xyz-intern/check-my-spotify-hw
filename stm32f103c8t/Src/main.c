@@ -69,10 +69,7 @@ uint8_t data[8][1] = {
 };
 
 // btn flags
-GPIO_PinState btn_flag_1 = 0;
-GPIO_PinState btn_flag_2 = 0;
-GPIO_PinState btn_flag_3 = 0;
-GPIO_PinState btn_flag_4 = 0;
+uint8_t flag_sw = 0;
 
 // next & prev double click ticks
 uint32_t np_old_tick     = 0;
@@ -122,38 +119,39 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 	for ( int i = 0 ; i < 1000000; i++ ) {} // debouncing delay
 	if (GPIO_Pin == START_STOP_BTN_Pin)
 	{
-		btn_flag_1 = 1;
+		flag_sw = 1;
 	}
 	else if ( GPIO_Pin == NEXT_PREVIOUS_BTN_Pin )
 	{
 		// first press time
 		np_current_tick = HAL_GetTick();
+
 		// if double press
-		if ( np_current_tick - np_old_tick < DOUBLE_CLICK__TIME && btn_flag_2 ==1 ) // last click - now click >= Double Clcik Time
+		if ( np_current_tick - np_old_tick < DOUBLE_CLICK__TIME && flag_sw ==2 ) // last click - now click >= Double Clcik Time
 		{
 			// double click
 			np_is_double_click=1;
-			btn_flag_2=0;
+			flag_sw = 3;
 		}
 		else
 		{
 			np_is_double_click =0;
-			btn_flag_2=1;
+			flag_sw = 2;
 		}
 		np_old_tick = HAL_GetTick();
 	}
 	else if ( GPIO_Pin == VOLUMN_UP_DOWN_Pin )
 	{
 		vol_current_tick = HAL_GetTick();
-		if ( vol_current_tick - vol_old_tick < DOUBLE_CLICK__TIME && btn_flag_3 ==1 )
+		if ( vol_current_tick - vol_old_tick < DOUBLE_CLICK__TIME && flag_sw == 4 )
 		{
 			vol_is_double_click=1;
-			btn_flag_3=0;
+			flag_sw = 5;
 		}
 		else
 		{
 			vol_is_double_click =0;
-			btn_flag_3=1;
+			flag_sw = 4;
 		}
 
 		vol_old_tick = HAL_GetTick();
@@ -162,7 +160,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 	else if ( GPIO_Pin == TRANSFORM_DISPLAY_Pin )
 	{
 		display_reset = 1;
-		btn_flag_4=1;
+		flag_sw = 6;
 	}
 }
 
@@ -248,10 +246,9 @@ int main(void)
 		  lcd_clear();
 	  }
 
-	  if ( btn_flag_4 == 1 )
+	  if ( flag_sw == 6 )
 	  {
 		  lcd_status.display_mode++;
-
 		  if ( lcd_status.display_mode == 0 )
 		  {
 			  lcd_status.song_info_print=1;
@@ -260,16 +257,14 @@ int main(void)
 		  {
 			  duration_blick =0;
 		  }
-		  else if ( lcd_status.display_mode == 2 )
-		  {
-			  // volume logic
+		  // volume logic
+		  else if ( lcd_status.display_mode == 2 ) {}
 		  }
 		  else
 		  {
 			  lcd_status.display_mode = 0;
 		  }
-
-		  btn_flag_4 = 0;
+		  flag_sw = 0;
 	  }
 
 	  // Are you serial data ?
@@ -346,9 +341,9 @@ int main(void)
 		  serial_len = 0;
 	  }
 
-	  if ( btn_flag_1 == 1 )
+	  if ( flag_sw == 1 )
 	  {
-		  btn_flag_1 = 0;
+		  flag_sw = 0;
 		  // excute logic
 		  if ( sw_state_stop_play )
 		  {   // play
@@ -365,29 +360,32 @@ int main(void)
 		  sw_state_stop_play = !sw_state_stop_play; // 버튼 상태를 변경합니다.
 	  }
 
-	  if ( np_is_double_click == 0 && btn_flag_2 == 1)
+	  else if ( np_is_double_click == 0 && flag_sw == 2 )
 	  {
 		  music_play=0;
-		  btn_flag_2 = 0;
+		  flag_sw = 0;
 		  CDC_Transmit_FS(data[2], 1); // 010 next
 	  }
 
-	  if ( np_is_double_click == 1 && btn_flag_2 == 0 )
+	  else if ( np_is_double_click == 1 && flag_sw == 3 )
 	  {
 		  music_play=0;
 		  np_is_double_click=0;
+		  flag_sw = 0;
 		  CDC_Transmit_FS(data[3], 1); // 011 prev
 	  }
 
-	  if ( vol_is_double_click == 0 && btn_flag_3 == 1)
+	  else if ( vol_is_double_click == 0 && flag_sw == 4 )
 	  {   // volume up
-		  btn_flag_3 = 0;
+		  flag_sw = 0;
 		  lcd_clear();
 		  CDC_Transmit_FS(data[4], 1); // 100 next
 	  }
-	  if ( vol_is_double_click == 1 && btn_flag_3 == 0 )
+
+	  else if ( vol_is_double_click == 1 && flag_sw == 5 )
 	  {   // volume down
 		  vol_is_double_click=0;
+		  flag_sw = 0;
 		  CDC_Transmit_FS(data[5], 1); // 101 prev
 	  }
 
@@ -603,17 +601,11 @@ static void MX_GPIO_Init(void)
   /* GPIO Ports Clock Enable */
   __HAL_RCC_GPIOC_CLK_ENABLE();
   __HAL_RCC_GPIOD_CLK_ENABLE();
-  __HAL_RCC_GPIOA_CLK_ENABLE();
   __HAL_RCC_GPIOB_CLK_ENABLE();
+  __HAL_RCC_GPIOA_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOB, CLK1_Pin|DIO1_Pin, GPIO_PIN_RESET);
-
-  /*Configure GPIO pins : START_STOP_BTN_Pin NEXT_PREVIOUS_BTN_Pin VOLUMN_UP_DOWN_Pin TRANSFORM_DISPLAY_Pin */
-  GPIO_InitStruct.Pin = START_STOP_BTN_Pin|NEXT_PREVIOUS_BTN_Pin|VOLUMN_UP_DOWN_Pin|TRANSFORM_DISPLAY_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
   /*Configure GPIO pin : CLK1_Pin */
   GPIO_InitStruct.Pin = CLK1_Pin;
@@ -629,15 +621,24 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
   HAL_GPIO_Init(DIO1_GPIO_Port, &GPIO_InitStruct);
 
+  /*Configure GPIO pin : START_STOP_BTN_Pin */
+  GPIO_InitStruct.Pin = START_STOP_BTN_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(START_STOP_BTN_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pins : NEXT_PREVIOUS_BTN_Pin VOLUMN_UP_DOWN_Pin TRANSFORM_DISPLAY_Pin */
+  GPIO_InitStruct.Pin = NEXT_PREVIOUS_BTN_Pin|VOLUMN_UP_DOWN_Pin|TRANSFORM_DISPLAY_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
   /* EXTI interrupt init*/
-  HAL_NVIC_SetPriority(EXTI3_IRQn, 0, 0);
-  HAL_NVIC_EnableIRQ(EXTI3_IRQn);
-
-  HAL_NVIC_SetPriority(EXTI4_IRQn, 0, 0);
-  HAL_NVIC_EnableIRQ(EXTI4_IRQn);
-
   HAL_NVIC_SetPriority(EXTI9_5_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(EXTI9_5_IRQn);
+
+  HAL_NVIC_SetPriority(EXTI15_10_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(EXTI15_10_IRQn);
 
 /* USER CODE BEGIN MX_GPIO_Init_2 */
 /* USER CODE END MX_GPIO_Init_2 */
