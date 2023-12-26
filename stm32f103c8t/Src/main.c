@@ -245,10 +245,10 @@ int main(void)
 		  display_reset = 0;
 		  lcd_clear();
 	  }
-
 	  if ( flag_sw == 6 )
 	  {
 		  lcd_status.display_mode++;
+
 		  if ( lcd_status.display_mode == 0 )
 		  {
 			  lcd_status.song_info_print=1;
@@ -257,9 +257,7 @@ int main(void)
 		  {
 			  duration_blick =0;
 		  }
-		  // volume logic
-		  else if ( lcd_status.display_mode == 2 ) {}
-		  }
+		  else if ( lcd_status.display_mode == 2 ){}
 		  else
 		  {
 			  lcd_status.display_mode = 0;
@@ -296,7 +294,6 @@ int main(void)
 				  rcv_song_process(&tokens,&music_tmp,&lcd_status);
 				  lcd_status.title_scroll_start_time  = HAL_GetTick() + LCD_SCROLL_DELAY_TIME;
 				  lcd_status.artists_scroll_start_time= HAL_GetTick() + LCD_SCROLL_DELAY_TIME;
-
 			  }
 			  // when serial data len > 3
 			  else
@@ -381,7 +378,6 @@ int main(void)
 		  lcd_clear();
 		  CDC_Transmit_FS(data[4], 1); // 100 next
 	  }
-
 	  else if ( vol_is_double_click == 1 && flag_sw == 5 )
 	  {   // volume down
 		  vol_is_double_click=0;
