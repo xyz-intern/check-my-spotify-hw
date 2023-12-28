@@ -1,7 +1,7 @@
 import serial
 
-prefix = chr(1)  
-suffix = chr(0)
+prefix = chr(6)  
+suffix = chr(3)
 
 class Serial:
 

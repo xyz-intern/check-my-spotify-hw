@@ -1,4 +1,3 @@
-import requests
 import threading
 import time
 from serial_connector import Serial
@@ -95,3 +94,6 @@ while True:
     exit_signal = input('Type "e" anytime to stop server\n')
     if exit_signal == 'e' or 'exit' or 'EXIT':
         break
+
+# /dev/serial/by-id/usb-STMicroelectronics_STM32_Virtual_ComPort_8D71326E5652-if00
+# /dev/serial/by-id/usb-STMicroelectronics_STM32_Virtual_ComPort_498E33853832-if00
